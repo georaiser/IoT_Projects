@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Carrito — Estación Geofísica + Monitor Ambiental + IA v2.0</title>
+  <style>
+    :root {
+      --primary:#1B365D; --geo:#6A1B9A; --amb:#1565C0; --both:#2E7D32;
+      --bg:#F4F6F9; --card:#fff; --text:#212529; --border:#DEE2E6;
+    }
+    * { box-sizing: border-box; }
+    body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+      background:var(--bg); color:var(--text); margin:0; padding:20px; line-height:1.5; }
+    .container { max-width:1180px; margin:0 auto; }
+
+    header { background:linear-gradient(135deg,#1B365D 0%,#6A1B9A 50%,#1565C0 100%);
+      color:white; padding:26px 32px; border-radius:12px;
+      box-shadow:0 4px 12px rgba(0,0,0,.15); margin-bottom:20px; }
+    header h1 { margin:0 0 6px 0; font-size:22px; }
+    header p  { margin:0; opacity:.88; font-size:13px; }
+
+    .legend { display:flex; gap:12px; flex-wrap:wrap; background:white;
+      border-radius:10px; padding:14px 18px; margin-bottom:18px;
+      border:1px solid var(--border); font-size:13px; align-items:center; }
+    .legend strong { color:#555; }
+
+    .stats { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:18px; }
+    .stat  { background:white; border:1px solid var(--border); border-radius:10px;
+      padding:14px; text-align:center; }
+    .stat .val { font-size:20px; font-weight:700; color:var(--primary); }
+    .stat .lbl { font-size:12px; color:#6c757d; margin-top:4px; }
+
+    .section-title { font-size:16px; font-weight:700; color:white;
+      padding:10px 16px; border-radius:8px 8px 0 0; margin-top:24px; margin-bottom:0;
+      display:flex; align-items:center; gap:8px; }
+    .cat-micros    { background:#4527A0; }
+    .cat-seismic   { background:var(--geo); }
+    .cat-ambient   { background:#0277BD; }
+    .cat-display   { background:#00695C; }
+    .cat-power     { background:#F9A825; color:#212121; }
+    .cat-passive   { background:#6D4C41; }
+    .cat-tools     { background:#37474F; }
+    .cat-consumable{ background:#455A64; }
+    .cat-ia        { background:linear-gradient(90deg,#AD1457,#6A1B9A); }
+    .cat-fase4     { background:linear-gradient(90deg,#E65100,#D84315); }
+
+
+    table { width:100%; border-collapse:collapse; background:white;
+      border-radius:0 0 10px 10px; margin-bottom:4px;
+      box-shadow:0 2px 8px rgba(0,0,0,.06); }
+    th { background:#F5F5F5; color:#333; padding:10px 8px; text-align:left;
+      font-size:12px; border-bottom:2px solid var(--border); }
+    td { padding:9px 8px; border-bottom:1px solid #F0F0F0; font-size:13px;
+      vertical-align:middle; }
+    tr:last-child td { border-bottom:none; }
+    tr.bought { background:#E8F5E9 !important; }
+    tr.bought td strong { text-decoration:line-through; text-decoration-color:#81C784; }
+    tr:hover { background:#FAFAFA; }
+    tr.hidden { display:none; }
+
+    .badge { display:inline-block; padding:2px 7px; border-radius:10px;
+      font-size:11px; font-weight:600; white-space:nowrap; }
+    .lv1 { background:#FFEBEE; color:#C62828; border:1px solid #EF9A9A; }
+    .lv2 { background:#FFF3E0; color:#E65100; border:1px solid #FFCC80; }
+    .lv3 { background:#E3F2FD; color:#1565C0; border:1px solid #90CAF9; }
+
+    .st-bought  { background:#C8E6C9; color:#1B5E20; border:1px solid #81C784; }
+    .st-cart    { background:#FFF9C4; color:#F57F17; border:1px solid #FFF176; }
+    .st-pending { background:#ECEFF1; color:#455A64; border:1px solid #B0BEC5; }
+
+    .tag-geo  { background:#EDE7F6; color:#4527A0; border:1px solid #CE93D8;
+      padding:2px 6px; border-radius:8px; font-size:11px; font-weight:600; white-space:nowrap; }
+    .tag-amb  { background:#E3F2FD; color:#0D47A1; border:1px solid #90CAF9;
+      padding:2px 6px; border-radius:8px; font-size:11px; font-weight:600; white-space:nowrap; }
+    .tag-both { background:#E8F5E9; color:#1B5E20; border:1px solid #A5D6A7;
+      padding:2px 6px; border-radius:8px; font-size:11px; font-weight:600; white-space:nowrap; }
+    .tag-ia   { background:#FCE4EC; color:#AD1457; border:1px solid #F48FB1;
+      padding:2px 6px; border-radius:8px; font-size:11px; font-weight:600; white-space:nowrap; }
+
+    .qty-badge { display:inline-block; background:#FF6F00; color:white;
+      border-radius:12px; padding:1px 8px; font-size:12px; font-weight:700; }
+
+    .btn { display:inline-flex; align-items:center; gap:5px; padding:6px 12px;
+      border-radius:6px; font-weight:600; font-size:12px; cursor:pointer;
+      text-decoration:none; border:none; transition:opacity .15s; white-space:nowrap; }
+    .btn:hover { opacity:.82; }
+    .btn-geo  { background:#6A1B9A; color:white; }
+    .btn-amb  { background:#1565C0; color:white; }
+    .btn-both { background:#2E7D32; color:white; }
+    .btn-retail { background:#E65100; color:white; }
+    .btn-ml   { background:#FFE600; color:#2D3277; }
+    .btn-filter { background:var(--border); color:#333; }
+    .btn-filter.active { background:var(--primary); color:white; }
+
+    .price { text-align:right; font-family:monospace; white-space:nowrap; }
+    .price-total { text-align:right; font-family:monospace; font-weight:700; color:#2E7D32; white-space:nowrap; }
+
+    .budget-section { background:white; border-radius:10px; padding:20px;
+      margin-top:24px; border:1px solid var(--border); }
+    .budget-section h3 { margin-top:0; color:var(--primary); }
+
+    .note { background:#FFF8E1; border:1px solid #FFD54F; border-radius:8px;
+      padding:12px 16px; font-size:13px; margin-bottom:16px; }
+    .note-ok { background:#E8F5E9; border-color:#A5D6A7; }
+
+    .controls { background:white; border-radius:8px; padding:12px 16px;
+      margin-bottom:16px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+      border:1px solid var(--border); }
+
+    .sub { font-size:11px; color:#666; }
+    .warn { font-size:11px; color:#C62828; font-weight:600; }
+
+    @media(max-width:800px) {
+      .stats { grid-template-columns:1fr 1fr; }
+      .controls { flex-direction:column; align-items:flex-start; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>🌋🏠🧠 Carrito — Estación Geofísica + Monitor Ambiental + IA</h1>
+    <p>v2.2 · Actualizado 15-10-2026 · Conciliado con compras ML, Mechatronic y AFEL Pedido #1 + Fase 4 (AFEL Pedido #2 Electrónica Clásica y Taller)</p>
+  </header>
+
+  <div class="legend">
+    <strong>Proyecto:</strong>
+    <span class="tag-geo">🌋 Geofísica</span>
+    <span class="tag-amb">🏠 Ambiental</span>
+    <span class="tag-both">♻️ Ambos</span>
+    <span class="tag-ia">🧠 Usado por IA</span>
+    &nbsp;
+    <strong>Urgencia:</strong>
+    <span class="badge lv1">Nivel 1 — Imprescindible</span>
+    <span class="badge lv2">Nivel 2 — Recomendable</span>
+    <span class="badge lv3">Nivel 3 — Opcional</span>
+    &nbsp;
+    <strong>Estado:</strong>
+    <span class="badge st-bought">✅ Comprado</span>
+    <span class="badge st-cart">🛒 Decidido / en carrito</span>
+    <span class="badge st-pending">⏳ Por comprar</span>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="val" id="s-items">–</div><div class="lbl">Ítems activos</div></div>
+    <div class="stat"><div class="val" id="s-bought" style="color:#2E7D32">–</div><div class="lbl">Comprados</div></div>
+    <div class="stat"><div class="val" id="s-spent" style="color:#2E7D32">–</div><div class="lbl">Gastado (ref.)</div></div>
+    <div class="stat"><div class="val" id="s-l1" style="color:#C62828">–</div><div class="lbl">Falta Nivel 1</div></div>
+    <div class="stat"><div class="val" id="s-l12" style="color:#E65100">–</div><div class="lbl">Falta Nivel 1+2</div></div>
+  </div>
+
+  <div class="note note-ok">
+    ✅ <strong>Placas listas:</strong> ESP32-S3 N16R8, ESP32 DevKit 30P (WROOM-32) y ESP32-C3 Super Mini — <strong>todas USB-C</strong>.
+    Un solo tipo de cable (USB-A → USB-C <em>de datos</em>) sirve para todo el laboratorio.<br>
+    ⚡ <strong>Alimentación:</strong> no se necesita MB102 ni LM2596 — el ESP32 entrega 5V (pin VIN) y 3.3V (pin 3V3) desde el USB.
+  </div>
+
+  <div class="note">
+    ☑️ <strong>Marca la casilla ✓ cuando compres algo</strong> — se guarda en este navegador y actualiza el presupuesto.<br>
+    🔗 Los links de búsqueda abren la tienda; elige el producto exacto. Precios son referencia (pueden variar ±20%).
+  </div>
+
+  <div class="controls">
+    <strong>🔍 Ver:</strong>
+    <button class="btn btn-filter active" data-f="all">Todos</button>
+    <button class="btn btn-filter" data-f="pending">⏳ Pendientes</button>
+    <button class="btn btn-filter" data-f="bought">✅ Comprados</button>
+    <button class="btn btn-filter" data-f="lv1">🔴 Solo Nivel 1</button>
+    <button class="btn btn-filter" data-f="ia">🧠 Necesarios para IA</button>
+    &nbsp;|&nbsp;
+    <button class="btn btn-both" onclick="copyScript()">📋 Copiar script (pendientes Niv.1+2)</button>
+    <button class="btn btn-filter" onclick="resetChecks()">↺ Reiniciar marcas</button>
+    <span id="copyNotice" style="font-weight:bold;color:#2E7D32;display:none">¡Copiado!</span>
+  </div>
+
+  <div id="sections"></div>
+
+
+
+  <!-- ===================== PRESUPUESTO ===================== -->
+  <div class="budget-section">
+    <h3>💰 Resumen de Presupuesto (calculado automáticamente)</h3>
+    <table style="border-radius:8px;overflow:hidden;box-shadow:none;border:1px solid var(--border)">
+      <thead><tr>
+        <th>Nivel</th>
+        <th style="text-align:right">Total referencia</th>
+        <th style="text-align:right">Ya comprado</th>
+        <th style="text-align:right">Falta</th>
+      </tr></thead>
+      <tbody id="budget-body"></tbody>
+    </table>
+    <div style="margin-top:14px;font-size:13px;background:#F3E5F5;padding:12px;border-radius:8px">
+      <strong>🧾 Compras consolidadas (Actualizado al 15-10-2026):</strong><br>
+      <strong>✅ MercadoLibre ($130.039 CLP):</strong> Cautín LEFAVOR 80W, Multímetro AstroAI 6000 cuentas, Tercera mano LED, ESP32-S3 N16R8, ESP32 30P, 2× ESP32-C3 Super Mini, 4× PCBs, Cable Xiaomi datos USB-C, MicroSD Maxell 16GB, Maletín organizador y Amplificador MAX98357A I2S.<br>
+      <strong>✅ MechatronicStore ($70.760 CLP — Pedido #717057):</strong> XIAO ESP32-S3 Sense, 2× ADXL345, 2× BH1750, Sensor gotas de lluvia, Radar microondas RCWL-0516, Infrarrojo HW-201, Láser VL53L0X, 2× Protoboards 830, Pinzas HARDEN, Pasta ZD-170, Malla desoldadora, Alcohol isopropílico.<br>
+      <strong>✅ AFEL Pedido #1 ($92.970 CLP = $88.970 productos + $4.000 envío):</strong> 3× AHT20+BMP280, MPU6050, DS18B20 1m, 2× MQ-135, 2× PIR, 2× OLED 0.96", 2× MicroSD SPI, ADS1115, Micrófono INMP441, Mini Parlante 3W, 2× Servos SG90, 2× Buzzers, 3× Potenciómetros, Ultrasonido HC-SR04, Kit Componentes, 120 Dupont, Mini Protoboard, Alicate cortante.<br>
+      <strong>🛒 AFEL Pedido #2 — Fase 4 ($24.750 CLP — Despacho combinado gratis):</strong> Soldadura Best 0.5mm 100g, Cargador 5V 3A USB-C, Termorretráctiles 127 pcs, 4× ULN2803, Sensor sonido KY-038, Fuente Protoboard MB-102, Relé 5V, 2× MOSFET IRFZ44N, Pines macho/hembra surtidos, Jumpers, Switch MTS-102.<br>
+      <strong>💰 Inversión Total Real Consolidada: $318.519 CLP</strong> (Laboratorio completo de Electrónica, Potencia, IoT e IA).
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// BASE DE DATOS REAL CONSOLIDADA (100% COMPRADO)
+// ============================================================
+const sections = [
+  { key:'micros', title:'🤖 Microcontroladores — El Cerebro de Cada Nodo', cls:'cat-micros', items:[
+    { id:'M1', name:'ESP32-S3 N16R8 (44 pines, USB-C, 8 MB PSRAM)', qty:1, tag:'both', lv:1, ia:true, st:'bought',
+      role:'Hub central — FFT, STA/LTA, MQTT, servidor web, cerebro IA y audio',
+      ref:13434, store:'ml',
+      url:'https://www.mercadolibre.cl/placa-desarrollo-esp32-s3-n16r8-44-pines-usb-c-wifi-24g-ble/p/MLC2103080789' },
+    { id:'M2', name:'ESP32 DevKit 30P (ESP-WROOM-32) USB-C — Vshop', qty:1, tag:'geo', lv:1, st:'bought',
+      role:'Nodo remoto sísmico (ADXL345 #2 por SPI, OLED y MicroSD)',
+      ref:7160, store:'ml',
+      url:'https://www.mercadolibre.cl/placa-de-desarrollo-esp32-usbc-wifi-bluetooth-30-pin-vshop/up/MLCU3669688534' },
+    { id:'M3', name:'ESP32-C3 Super Mini USB-C (Pack 2 uds)', qty:2, tag:'amb', lv:1, st:'bought',
+      role:'Nodos Dormitorio + Exterior — bajo consumo (2 unidades compradas)',
+      ref:5817, store:'ml',
+      url:'https://www.mercadolibre.cl/placa-de-desarrollo-supermini-esp32-c3-usb-tipo-c-arduino/p/MLC2047001629' },
+    { id:'M4', name:'Seeed Studio XIAO ESP32-S3 Sense (cámara + micro PDM + ranura SD)', qty:1, tag:'both', lv:2, ia:true, st:'bought',
+      role:'Fotos horarias del cielo (IA-3), visión artificial y micro nodo IA',
+      ref:22990, store:'mech',
+      url:'https://www.mechatronicstore.cl/seeed-studio-xiao-esp32-s3-sense/' },
+  ]},
+  { key:'seismic', title:'📡 Sensores Sísmicos — Estación Geofísica', cls:'cat-seismic', items:[
+    { id:'S1', name:'Acelerómetro digital 3 ejes ADXL345 GY-291', qty:2, tag:'geo', lv:1, ia:true, st:'bought',
+      role:'Sensor sísmico primario — uno por nodo (IA-1 clasificador sísmico)',
+      ref:3490, store:'mech',
+      url:'https://www.mechatronicstore.cl/acelerometro-digital-3-ejes-adxl345-gy-291/' },
+    { id:'S2', name:'IMU MPU6050 GY-521 (Giroscopio + Acelerómetro)', qty:1, tag:'geo', lv:1, st:'bought',
+      role:'Inclinómetro del terreno — movimiento lento del suelo',
+      ref:4000, store:'afel', url:'https://afel.cl/products/sensor-giroscopio-acelerometro-gy-521-mpu6050' },
+    { id:'S3', name:'Sensor Temperatura DS18B20 1 metro sumergible', qty:1, tag:'geo', lv:3, st:'bought',
+      role:'Temperatura del suelo a 10 cm',
+      ref:2500, store:'afel', url:'https://afel.cl/products/sensor-temperatura-ds18b20-1-metro' },
+  ]},
+  { key:'ambient', title:'🌡️ Sensores Ambientales y Detección — Ambos Proyectos', cls:'cat-ambient', items:[
+    { id:'A1', name:'Sensor Temp, Humedad y Presión AHT20+BMP280', qty:3, tag:'both', lv:1, ia:true, st:'bought',
+      role:'Hub (geo + salón), Dormitorio y Exterior (I2C digital)',
+      note:'Nota: Compradas 3 uds; el nodo remoto sísmico no lleva este sensor',
+      ref:3000, store:'afel', url:'https://afel.cl/products/sensor-de-temperatura-humedad-y-presion-aht20-bmp280' },
+    { id:'A3', name:'Módulo Sensor Intensidad Luminosa BH1750 Gy-302', qty:2, tag:'both', lv:2, ia:true, st:'bought',
+      role:'Ciclo día/noche y radiación solar en lux — Hub y Exterior',
+      note:'Nota: Compradas 2 uds (Hub y Exterior; el Dormitorio no lleva BH1750)',
+      ref:3990, store:'mech', url:'https://www.mechatronicstore.cl/?s=bh1750' },
+    { id:'A4', name:'Sensor Calidad Aire MQ-135 (CO₂ / VOC / Humo)', qty:2, tag:'amb', lv:2, ia:true, st:'bought',
+      role:'Salón (Hub) vía ADS1115 16-bit + 2.º opcional en Dormitorio (ADC interno del C3)',
+      ref:3400, store:'afel', url:'https://afel.cl/products/sensor-calidad-aire-mq135' },
+    { id:'A5', name:'Sensor de Movimiento PIR HC-SR501', qty:2, tag:'amb', lv:2, st:'bought',
+      role:'Presencia humana en Salón + Dormitorio',
+      ref:2300, store:'afel', url:'https://afel.cl/products/sensor-de-movimiento-hc-sr501' },
+    { id:'A6', name:'Sensor detector gotas de lluvia o riego 3.3/5V', qty:1, tag:'amb', lv:1, ia:true, st:'bought',
+      role:'Nodo Exterior — genera etiquetas de lluvia en tiempo real',
+      ref:1500, store:'mech', url:'https://www.mechatronicstore.cl/sensor-detector-de-gotas-de-lluvia-o-riego-3-3-5v/' },
+    { id:'A7', name:'Sensor Telemetría / Medición Láser GY-530 VL53L0X', qty:1, tag:'amb', lv:3, st:'bought',
+      role:'Medición de distancia por tiempo de vuelo láser (ToF)',
+      ref:6490, store:'mech', url:'https://www.mechatronicstore.cl/sensor-de-temetria-medicion-por-laser-gy-530-vl53l0x/' },
+    { id:'A8', name:'Sensor Radar de Microondas RCWL-0516 (Efecto Doppler)', qty:1, tag:'both', lv:2, ia:true, st:'bought',
+      role:'Detección de presencia invisible tras plástico/madera para Mascota Robot o Monitor',
+      ref:2290, store:'mech', url:'https://www.mechatronicstore.cl/?s=rcwl-0516' },
+    { id:'A9', name:'Sensor Proximidad Infrarrojo HW-201 (Obstáculos)', qty:1, tag:'both', lv:2, st:'bought',
+      role:'Detección de obstáculos a corta distancia para robot o presencia cercana',
+      ref:1490, store:'mech', url:'https://www.mechatronicstore.cl/?s=hw-201' },
+    { id:'A10', name:'Sensor Ultrasónico HC-SR04', qty:1, tag:'both', lv:2, st:'bought',
+      role:'Medición de distancia por ultrasonido para navegación de robot o nivel de estanque',
+      ref:1500, store:'afel', url:'https://afel.cl/products/sensor-de-ultrasonico-hc-sr04' },
+  ]},
+  { key:'display', title:'📺 Display, Adquisición, Almacenamiento y Audio', cls:'cat-display', items:[
+    { id:'D1', name:'Módulo Conversor Análogo Digital ADS1115 (16-bit, 4 canales)', qty:1, tag:'both', lv:2, ia:true, st:'bought',
+      role:'Lectura de alta precisión para sensor MQ-135 y analógicos',
+      ref:5000, store:'afel', url:'https://afel.cl/products/modulo-conversor-analogo-digital-ads1115' },
+    { id:'D2', name:'Pantalla LCD OLED Azul y Amarillo 0.96" I2C', qty:2, tag:'both', lv:2, st:'bought',
+      role:'Display local: 1 en el Hub y 1 en el nodo remoto sísmico (o cara de robot)',
+      ref:4500, store:'afel', url:'https://afel.cl/products/pantalla-lcd-oled-azul-y-amarillo-0-96' },
+    { id:'D3', name:'Pantalla TFT ST7789 (SPI)', qty:1, tag:'geo', lv:2, st:'pending',
+      role:'Espectrograma FFT waterfall y dashboard del Hub (bus SPI-B dedicado)',
+      note:'⏳ Pendiente de compra — precio estimado',
+      ref:9000, store:'mech', url:'https://www.mechatronicstore.cl/?s=st7789' },
+    { id:'D4', name:'Módulo Lector Micro SD SPI', qty:2, tag:'both', lv:1, ia:true, st:'bought',
+      role:'Logging CSV local en Hub ESP32-S3 y DevKit (XIAO ya trae ranura)',
+      note:'Nota: Compradas 2 uds (sugerido inicial 3; suficiente para los 2 nodos principales)',
+      ref:2500, store:'afel', url:'https://afel.cl/products/lector-micro-sd' },
+    { id:'D5', name:'Tarjeta Memoria Maxell Micro SD 16GB Clase 10 90MB/s', qty:1, tag:'both', lv:1, ia:true, st:'bought',
+      role:'Almacenamiento de datasets de entrenamiento y logs sísmicos en FAT32',
+      note:'Nota: Comprada 1 ud inicial (sugerido 3-4; ideal para arrancar de inmediato)',
+      ref:7990, store:'ml', url:'https://myaccount.mercadolibre.cl/my_purchases/2000015443264905/status?packId=2000015443264909' },
+    { id:'D6', name:'Tarjeta MicroSD 16-32GB Clase 10 (adicionales)', qty:2, tag:'both', lv:2, ia:true, st:'pending',
+      role:'Una para el nodo remoto sísmico y otra para el XIAO (la Maxell va en el Hub)',
+      note:'⏳ Pendiente — precio referencial',
+      ref:7990, store:'ml', url:'https://listado.mercadolibre.cl/microsd-16gb-clase-10' },
+    { id:'I7', name:'Sensor Micrófono Omnidireccional INMP441 I2S', qty:1, tag:'both', lv:2, ia:true, st:'bought',
+      role:'Oído IA: Comandos de voz offline (KWS), detección acústica y streaming a DeepSeek',
+      ref:5990, store:'afel', url:'https://afel.cl/products/sensor-microfono-omnidireccional-inmp441' },
+    { id:'AU1', name:'Módulo Amplificador Audio I2S MAX98357A 3W (Nubbeo)', qty:1, tag:'both', lv:2, ia:true, st:'bought',
+      role:'Boca IA: DAC + Amplificador digital clase D para síntesis de voz humana del ESP32-S3',
+      ref:5890, store:'ml', url:'https://myaccount.mercadolibre.cl/my_purchases/2000015443264905/status?packId=2000015443264907' },
+    { id:'AU2', name:'Mini Parlante Altavoz de 3W 4Ω', qty:1, tag:'both', lv:2, ia:true, st:'bought',
+      role:'Reproducción de voz humana, alarmas habladas y respuestas de DeepSeek',
+      ref:3000, store:'afel', url:'https://afel.cl/products/mini-parlante-altavoz-de-3w' },
+  ]},
+  { key:'power', title:'⚡ Alimentación, Cables y Organización', cls:'cat-power', items:[
+    { id:'U1', name:'Xiaomi Cable Carga/Datos Tipo A a Tipo C 1m Carga Rápida (Blanco)', qty:1, tag:'both', lv:1, ia:true, st:'bought',
+      role:'Programación en PC y transmisión de datos de alta velocidad para ESP32 USB-C',
+      note:'Nota: Comprado 1 cable datos de alta velocidad Xiaomi (sugerido inicial 2-3)',
+      ref:6990, store:'ml', url:'https://myaccount.mercadolibre.cl/my_purchases/2000015443264905/status?packId=2000015443264909' },
+    { id:'ORG1', name:'Caja Maletín Organizadora Plástica Con Compartimientos Transparente', qty:1, tag:'both', lv:1, st:'bought',
+      role:'Organización y resguardo de sensores, módulos, cables y tornillería',
+      ref:5661, store:'ml', url:'https://myaccount.mercadolibre.cl/my_purchases/2000015443264905/status?packId=2000015443264909' },
+  ]},
+  { key:'passive', title:'🔌 Conectividad, Componentes Pasivos y Actuadores', cls:'cat-passive', items:[
+    { id:'P0', name:'Kit Componentes Básicos AFEL (600 resist. + 340 cerámicos + 120 electrolíticos + LEDs + diodos + transistores)', qty:1, tag:'both', lv:1, st:'bought',
+      role:'Componentes pasivos para polarización, filtros y pull-ups',
+      ref:17000, store:'afel', url:'https://afel.cl/products/kit-de-componentes-basicos-de-electronica' },
+    { id:'C1', name:'Pack 60 Cables de Conexión Dupont (x2 packs = 120 cables)', qty:2, tag:'both', lv:1, st:'bought',
+      role:'Cables flexibles M-M, H-H, M-H para prototipado rápido',
+      note:'✅ Comprados 2 packs de 60 cables (120 cables en total)',
+      ref:2500, store:'afel', url:'https://afel.cl/products/pack-40-cables-de-conexion' },
+    { id:'C4', name:'Protoboard 830 Puntos GL-12', qty:2, tag:'both', lv:1, st:'bought',
+      role:'Montaje y prueba de circuitos en mesa de trabajo',
+      note:'Nota: Compradas 2 uds (sugerido inicial 3; suficiente para desarrollo simultáneo)',
+      ref:3790, store:'mech', url:'https://www.mechatronicstore.cl/protoboard-830-puntos-gl-12/' },
+    { id:'K3', name:'Mini Protoboard 400 Puntos', qty:1, tag:'both', lv:2, st:'bought',
+      role:'Prototipos compactos para ESP32-C3 o sensor satélite',
+      ref:1500, store:'afel', url:'https://afel.cl/products/mini-protoboard-400-puntos' },
+    { id:'P4', name:'Kit Botón Táctil 6x6x5 (pack x5 uds)', qty:2, tag:'both', lv:2, st:'bought',
+      role:'10 pulsadores en total para reset, calibración y cambio de modo',
+      ref:500, store:'afel', url:'https://afel.cl/products/kit-boton-tactil-6x6x5-interruptor-5-unidades' },
+    { id:'P5', name:'Potenciómetro WH148 10K Ohm Lineal', qty:3, tag:'both', lv:2, st:'bought',
+      role:'Ajuste manual de umbrales en vivo (sensibilidad STA/LTA, volumen, CO₂)',
+      note:'✅ Compradas 3 uds (sugerido inicial 2; excelente para calibraciones)',
+      ref:500, store:'afel', url:'https://afel.cl/products/potenciometro-10k-ohm' },
+    { id:'B1', name:'Buzzer Pasivo Solo (Piezoeléctrico)', qty:2, tag:'both', lv:1, ia:true, st:'bought',
+      role:'Alarma acústica para eventos sísmicos, alerta de gases y beeps de sistema',
+      ref:300, store:'afel', url:'https://afel.cl/products/buzzer-pasivo-solo' },
+    { id:'M5', name:'Micro Servomotor SG90 (9g)', qty:2, tag:'both', lv:2, st:'bought',
+      role:'Actuadores mecánicos para patas de Robot Mascota o dial de aguja sísmica',
+      ref:1990, store:'afel', url:'https://afel.cl/products/micro-servomotor-sg90' },
+  ]},
+  { key:'tools', title:'🔧 Herramientas y Consumibles de Taller', cls:'cat-tools', items:[
+    { id:'H1', name:'Cautín LEFAVOR Digital 80W Rojo 220V + Kit 6 Accesorios', qty:1, tag:'both', lv:1, st:'bought',
+      role:'Cautín regulable digital con pantalla, soporte y puntas de repuesto',
+      ref:22912, store:'ml', url:'https://www.mercadolibre.cl/cautin-lefavor-digital-rojo-temp-adj-3-btnes-80w-kit-6-oferta-/p/MLC65711740' },
+    { id:'H4', name:'Multímetro y Tester Digital 6000 Cuentas Auto-Rango AstroAI', qty:1, tag:'both', lv:1, st:'bought',
+      role:'Medición profesional de voltaje, corriente, continuidad, capacitancia y diodos',
+      ref:29611, store:'ml', url:'https://listado.mercadolibre.cl/multimetro-digital-6000-cuentas' },
+    { id:'H9', name:'Lupa Brazo Escritorio Soporte Pinzas Luz LED (Tercera Mano)', qty:1, tag:'both', lv:1, st:'bought',
+      role:'Soporte articulado con pinzas y luz para soldadura de precisión de sensores',
+      ref:13890, store:'ml', url:'https://listado.mercadolibre.cl/tercera-mano-lupa-led' },
+    { id:'H5', name:'Set de 4 Pinzas de precisión Antimagnéticas HARDEN', qty:1, tag:'both', lv:1, st:'bought',
+      role:'Manipulación de componentes pequeños y cables',
+      ref:3490, store:'mech', url:'https://www.mechatronicstore.cl/set-de-4-pinzas-de-precision-antimagneticas-harden/' },
+    { id:'H7', name:'Alicate Cortante Electrónica al Ras', qty:1, tag:'both', lv:1, st:'bought',
+      role:'Corte limpio de terminales de componentes y cables',
+      ref:2000, store:'afel', url:'https://afel.cl/products/alicate-cortante-electronica' },
+    { id:'H3', name:'Pasta para soldar ZD-170 (100 gr)', qty:1, tag:'both', lv:1, st:'bought',
+      role:'Flux para soldadura limpia y sin puentes de estaño',
+      ref:4990, store:'mech', url:'https://www.mechatronicstore.cl/pasta-para-soldar-zd-170-100gr/' },
+    { id:'H10', name:'Cinta de Malla Desoldadora 2mm 1.5m', qty:1, tag:'both', lv:2, st:'bought',
+      role:'Corrección de soldaduras y desoldado de pines',
+      ref:2190, store:'mech', url:'https://www.mechatronicstore.cl/malla-desoldadora-zhen-dong-1-5m/' },
+    { id:'K1', name:'Alcohol Isopropílico 300cc con Spray', qty:1, tag:'both', lv:1, st:'bought',
+      role:'Limpieza de placas PCB y retiro de residuos de flux',
+      ref:3290, store:'mech', url:'https://www.mechatronicstore.cl/alcohol-isopropilico-300cc-con-spray/' },
+    { id:'K2', name:'4x Placas PCB Soldables Doble Cara para Prototipos', qty:1, tag:'both', lv:2, st:'bought',
+      role:'Montaje permanente y definitivo de los circuitos terminados',
+      ref:4867, store:'ml', url:'https://listado.mercadolibre.cl/placas-pcb-doble-cara' },
+  ]},
+  { key:'fase4', title:'⚡ Etapa / Fase 4: Electrónica Clásica, Potencia y Taller (AFEL Pedido #2)', cls:'cat-fase4', items:[
+    { id:'F4-1', name:'Soldadura Electrónica Est60 / Plo40 / 0.5mm / 100gr BEST', qty:1, tag:'both', lv:1, st:'bought',
+      role:'Estaño fino con resina para soldaduras electrónicas limpias en PCB y pines',
+      ref:6000, store:'afel', url:'https://afel.cl/products/soldadura-electronica-est60-plo40-0-5mm-100gr-best' },
+    { id:'F4-2', name:'Cargador 5V 3A Tipo C Dedicado', qty:1, tag:'both', lv:1, st:'bought',
+      role:'Fuente de energía continua de 5V 3000mA para pruebas en protoboard y banco de trabajo',
+      ref:3500, store:'afel', url:'https://afel.cl/products/cargador-5v-3a-tipo-c' },
+    { id:'F4-3', name:'Pack de 127 Tubos Termorretráctiles Surtidos', qty:1, tag:'both', lv:1, st:'bought',
+      role:'Aislamiento térmico profesional para empalmes y cables (7 diámetros de 2.0mm a 10mm)',
+      ref:3000, store:'afel', url:'https://afel.cl/products/pack-de-127-tubos-termorretractiles' },
+    { id:'F4-4', name:'Chip Arreglo Darlington ULN2803 (Pack 4 uds)', qty:4, tag:'both', lv:1, st:'bought',
+      role:'Driver de potencia: 8 salidas de hasta 50V 500mA con diodos flyback para motores, relés y tiras LED',
+      ref:500, store:'afel', url:'https://afel.cl/products/chip-uln2803' },
+    { id:'F4-5', name:'Sensor de Sonido Analógico / Digital KY-038', qty:1, tag:'both', lv:2, st:'bought',
+      role:'Detector acústico con potenciómetro para circuitos autónomos por aplausos o ruido sin microcontrolador',
+      ref:2300, store:'afel', url:'https://afel.cl/products/sensor-de-sonido-analogico-digital-ky-038' },
+    { id:'F4-6', name:'Fuente de Alimentación para Protoboard MB-102', qty:1, tag:'both', lv:1, st:'bought',
+      role:'Alimentación directa de 5V y 3.3V seleccionables con botón ON/OFF para protoboard',
+      ref:1500, store:'afel', url:'https://afel.cl/products/fuente-de-alimentacion-protoboard-mb-102' },
+    { id:'F4-7', name:'Módulo Relé (Relay) 5V de 01 Canal', qty:1, tag:'both', lv:1, st:'bought',
+      role:'Aislamiento galvánico y conmutación de cargas de 220V AC o DC con optoacoplador',
+      ref:1300, store:'afel', url:'https://afel.cl/products/rele-de-01-canal' },
+    { id:'F4-8', name:'Transistor MOSFET de Potencia IRFZ44N (Pack 2 uds)', qty:2, tag:'both', lv:1, st:'bought',
+      role:'Interruptor electrónico ultrarrápido Canal N de 55V 49A para control de motores y cargas DC con PWM',
+      ref:500, store:'afel', url:'https://afel.cl/products/transistor-mosfet-irfz44n' },
+    { id:'F4-9', name:'Regleta Macho Hembra Pin Header 1x40 (Pack 6 uds)', qty:6, tag:'both', lv:1, st:'bought',
+      role:'Tiras de zócalo hembra para montaje desmontable de ESP32 y sensores en placas PCB',
+      ref:250, store:'afel', url:'https://afel.cl/products/regleta-macho-hembra-pin-header' },
+    { id:'F4-10', name:'Regleta Macho Macho Pin Header 1x40 (Pack 4 uds)', qty:4, tag:'both', lv:1, st:'bought',
+      role:'Pines macho rectos paso 2.54mm para soldar en módulos y prototipos',
+      ref:250, store:'afel', url:'https://afel.cl/products/regleta-macho-macho-pin-header' },
+    { id:'F4-11', name:'Pack de 10 Jumpers 2.54 mm', qty:1, tag:'both', lv:1, st:'bought',
+      role:'Puentes de selección de voltaje para fuente MB-102 y configuración de placas',
+      ref:500, store:'afel', url:'https://afel.cl/products/pack-de-10-jumper-2-54-mm' },
+    { id:'F4-12', name:'Interruptor MTS-102 3 pines (SPDT)', qty:1, tag:'both', lv:2, st:'bought',
+      role:'Interruptor de palanca para encendido general o conmutación de modos en gabinetes',
+      ref:400, store:'afel', url:'https://afel.cl/products/interruptor-mts-102-3-pines' },
+    { id:'F4-13', name:'Regleta Macho Macho 90° Pin Header 1x40', qty:1, tag:'both', lv:2, st:'bought',
+      role:'Pines en ángulo recto para conexiones laterales en sensores o cajas compactas',
+      ref:250, store:'afel', url:'https://afel.cl/products/regleta-macho-macho-90-pin-header' },
+  ]},
+];
+
+
+
+// ============================================================
+// ESTADO PERSISTENTE (checkbox = comprado)
+// ============================================================
+const LS_KEY = 'carritoGeoAmb_v3';
+let overrides = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
+const allItems = sections.flatMap(s => s.items);
+const isBought = p => (p.id in overrides) ? overrides[p.id] : p.st === 'bought';
+
+function tagBadge(p) {
+  let t = p.tag==='geo' ? '<span class="tag-geo">🌋 Geofísica</span>'
+        : p.tag==='amb' ? '<span class="tag-amb">🏠 Ambiental</span>'
+        : '<span class="tag-both">♻️ Ambos</span>';
+  if (p.ia) t += '<br><span class="tag-ia" style="margin-top:3px;display:inline-block">🧠 IA</span>';
+  return t;
+}
+const lvBadge = l => `<span class="badge lv${l}">Nivel ${l}</span>`;
+function stBadge(p) {
+  if (isBought(p)) return '<span class="badge st-bought">✅ Comprado</span>';
+  if (p.st === 'cart') return '<span class="badge st-cart">🛒 Decidido</span>';
+  return '<span class="badge st-pending">⏳ Por comprar</span>';
+}
+function storeBadge(s, url) {
+  const cfg = {
+    mech:{lbl:'Mechatronic ↗', cls:'btn-both'}, mci:{lbl:'MCI ↗', cls:'btn-geo'},
+    ml:{lbl:'MercadoLibre ↗', cls:'btn-ml'},   afel:{lbl:'AFEL ↗', cls:'btn-amb'},
+    retail:{lbl:'Retail ↗', cls:'btn-retail'},
+  };
+  const c = cfg[s] || {lbl:'Buscar ↗', cls:'btn-both'};
+  return `<a href="${url}" target="_blank" class="btn ${c.cls}">${c.lbl}</a>`;
+}
+const clp = n => '$' + n.toLocaleString('es-CL');
+
+function render() {
+  const root = document.getElementById('sections');
+  root.innerHTML = '';
+  sections.forEach(sec => {
+    const title = document.createElement('div');
+    title.className = `section-title ${sec.cls}`;
+    title.textContent = sec.title;
+    root.appendChild(title);
+    const tbl = document.createElement('table');
+    tbl.innerHTML = `<thead><tr>
+      <th style="width:30px">✓</th><th style="width:36px">#</th><th>Componente</th>
+      <th>Proyecto</th><th>Cant.</th><th>Nivel</th><th>Estado</th>
+      <th style="text-align:right">Ref. CLP</th><th style="text-align:center">Tienda</th>
+    </tr></thead><tbody></tbody>`;
+    const tbody = tbl.querySelector('tbody');
+    sec.items.forEach(p => {
+      const tr = document.createElement('tr');
+      tr.id = `row-${p.id}`;
+      tr.dataset.lv = p.lv; tr.dataset.ia = p.ia ? '1' : '0';
+      if (isBought(p)) tr.classList.add('bought');
+      tr.innerHTML = `
+        <td><input type="checkbox" ${isBought(p)?'checked':''} onchange="toggle('${p.id}', this.checked)"></td>
+        <td style="font-size:11px;color:#888">${p.id}</td>
+        <td><strong>${p.name}</strong><br><span class="sub">${p.role}</span>
+            ${p.note ? `<br><span class="warn">${p.note}</span>` : ''}</td>
+        <td>${tagBadge(p)}</td>
+        <td><span class="qty-badge">×${p.qty}</span></td>
+        <td>${lvBadge(p.lv)}</td>
+        <td>${stBadge(p)}</td>
+        <td class="price">${clp(p.ref*p.qty)}<br><span style="font-size:11px;color:#999">${clp(p.ref)} c/u</span></td>
+        <td style="text-align:center">${storeBadge(p.store, p.url)}</td>`;
+      tbody.appendChild(tr);
+    });
+    root.appendChild(tbl);
+  });
+
+
+
+  updateStats();
+  applyFilter(currentFilter);
+}
+
+function updateStats() {
+  const sum = arr => arr.reduce((a,p) => a + p.ref*p.qty, 0);
+  const bought = allItems.filter(isBought);
+  const pend = allItems.filter(p => !isBought(p));
+  document.getElementById('s-items').textContent  = allItems.length;
+  document.getElementById('s-bought').textContent = `${bought.length} / ${allItems.length}`;
+  document.getElementById('s-spent').textContent  = clp(sum(bought));
+  document.getElementById('s-l1').textContent     = clp(sum(pend.filter(p => p.lv===1)));
+  document.getElementById('s-l12').textContent    = clp(sum(pend.filter(p => p.lv<=2)));
+
+  const rows = [1,2,3].map(l => {
+    const all = allItems.filter(p => p.lv===l);
+    const b = all.filter(isBought);
+    return `<tr><td>${lvBadge(l)}</td><td class="price">${clp(sum(all))}</td>
+      <td class="price" style="color:#2E7D32">${clp(sum(b))}</td>
+      <td class="price-total" style="color:#C62828">${clp(sum(all)-sum(b))}</td></tr>`;
+  });
+  const tot = sum(allItems), totB = sum(bought);
+  rows.push(`<tr style="background:#E8F5E9"><td><strong>TOTAL</strong></td>
+    <td class="price"><strong>${clp(tot)}</strong></td>
+    <td class="price" style="color:#2E7D32"><strong>${clp(totB)}</strong></td>
+    <td class="price-total" style="color:#C62828">${clp(tot-totB)}</td></tr>`);
+  rows.push(`<tr><td colspan="4" style="font-size:12px;color:#888">
+    * Registro consolidado de pedidos oficiales: Mercado Libre ($130.039 CLP), MechatronicStore ($70.760 CLP, pedido #717057), AFEL Pedido #1 ($92.970 CLP, incluye $4.000 de envío), AFEL Pedido #2 — Fase 4 ($24.750 CLP, despacho combinado gratis). Total real invertido: $318.519 CLP.</td></tr>`);
+  document.getElementById('budget-body').innerHTML = rows.join('');
+}
+
+function toggle(id, checked) {
+  const p = allItems.find(x => x.id === id);
+  if (checked === (p.st === 'bought')) delete overrides[id]; else overrides[id] = checked;
+  localStorage.setItem(LS_KEY, JSON.stringify(overrides));
+  render();
+}
+function resetChecks() {
+  if (!confirm('¿Reiniciar todas las marcas manuales?')) return;
+  overrides = {}; localStorage.removeItem(LS_KEY); render();
+}
+
+let currentFilter = 'all';
+function applyFilter(f) {
+  currentFilter = f;
+  document.querySelectorAll('.btn-filter[data-f]').forEach(b => b.classList.toggle('active', b.dataset.f === f));
+  allItems.forEach(p => {
+    const tr = document.getElementById(`row-${p.id}`);
+    let show = true;
+    if (f==='pending') show = !isBought(p);
+    if (f==='bought')  show = isBought(p);
+    if (f==='lv1')     show = p.lv === 1;
+    if (f==='ia')      show = !!p.ia;
+    tr.classList.toggle('hidden', !show);
+  });
+}
+document.querySelectorAll('.btn-filter[data-f]').forEach(b => b.addEventListener('click', () => applyFilter(b.dataset.f)));
+
+function copyScript() {
+  const urls = allItems.filter(p => p.lv<=2 && !isBought(p)).map(p => p.url);
+  const script = `// Abre ${urls.length} productos pendientes (Niv.1 y 2)\n// Pega en F12 > Console (permite ventanas emergentes)\nconst urls = [\n${urls.map(u=>`  "${u}"`).join(',\n')}\n];\nurls.forEach((u,i) => setTimeout(()=>window.open(u,'_blank'), i*400));`;
+  navigator.clipboard.writeText(script).then(() => {
+    const n = document.getElementById('copyNotice');
+    n.style.display='inline'; setTimeout(()=>n.style.display='none', 3000);
+  });
+}
+
+render();
+</script>
+</body>
+</html>

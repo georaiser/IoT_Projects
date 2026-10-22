@@ -1,0 +1,31 @@
+# PlatformIO & Arduino build artifacts
+.pio/
+build/
+*.bin
+*.elf
+*.map
+
+# VS Code & IDE local settings
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Python / Conda / Mamba
+__pycache__/
+*.py[cod]
+.venv/
+env/
+*.ipynb_checkpoints/
+
+# OS & temporary files
+.DS_Store
+Thumbs.db
+~$*
+
+# Private credentials & environment secrets (never commit to GitHub)
+**/secrets.h
+.env
+*.env
