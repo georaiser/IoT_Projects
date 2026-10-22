@@ -701,13 +701,18 @@ f-j │5V GND 3V3 4  3  2  1  0│  [VDD SDA GND SCL] [GND VCC SCK SDA]   MQ-135
 
 > ⚠️ En el C3, **evita conectar divisores resistivos a `GPIO 2`, `GPIO 8` y `GPIO 9`** (pines de arranque *strapping*). Por eso el `MQ-135` va en **`GPIO 0`** (`ADC1_CH0`).
 
-### 7.3 Proyecto Modular en Inglés (`d:\00_FisicaModerna\Proyecto_IoT\env_station`)
-El código definitivo está modularizado en inglés dentro de `d:\00_FisicaModerna\Proyecto_IoT\env_station\` (compatible con **VS Code + PlatformIO** y con **Arduino IDE**):
-- `env_station.ino`: `setup()` y `loop()` principales.
-- `config.h`: Selección automática de pines con `#if CONFIG_IDF_TARGET_ESP32C3` (sin costo en memoria compilada).
-- `sensors.h`: Lectura de `AHT20`, `BMP280`, `MQ-135` (`ADC_2_5db` + compensación $\times 2$ del divisor `10k/10k` en `ppm`) y alarma sonora en `PIN_BUZZER`.
-- `oled_display.h`: Carrusel en **letra grande (`TextSize 2`)** que rota cada 3 s entre `T/H`, `PRESSURE` y `AIR (ppm)`.
-- `web_server.h`: Dashboard web auto-refrescable cada 3 s.
+### 7.3 Proyecto Modular v1.2 (SOLID SRP + KISS)
+El código definitivo está modularizado en inglés dentro de `projects/01_env_station/env_station/` (compatible con **VS Code + PlatformIO** y con **Arduino IDE**):
+- `env_station.ino`: Orquestador principal, temporizadores no bloqueantes y ciclo de vida Wi-Fi.
+- `config.h`: Selección de pines, umbrales y carga de `secrets.h`.
+- `secrets.example.h`: Plantilla pública de credenciales (el archivo real `secrets.h` está protegido en `.gitignore`).
+- `time_service.h`: Sincronización NTP (`ntp.shoa.cl` / `pool.ntp.org`, hora oficial Chile UTC-3).
+- `sensors.h`: Adquisición pura de sensores (`AHT20`, `BMP280`, `MQ-135`), sin mezclar actuadores.
+- `alert_manager.h`: Reglas de umbral y control acústico del Buzzer pasivo.
+- `stats_logger.h`: Estadísticas en vivo (`Min`, `Max` con hora exacta, `Avg`) y buffer circular de 24 h en RAM (`288` muestras a 5 min) con exportador CSV.
+- `oled_display.h`: Carrusel de 3 vistas en letra grande + barra inferior con reloj e IP (`17:23 | 192.168.1.6`).
+- `index_html.h`: Plantilla visual HTML5/CSS/JS moderna en modo oscuro guardada en `PROGMEM`.
+- `web_server.h`: Enrutador HTTP, API REST (`/api/sensors`) y descarga de datos (`/api/history.csv`).
 
 ### 7.4 Pasos
 1. Desenchufa el DevKit. Mueve los cables del sensor a la placa C3.

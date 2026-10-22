@@ -69,18 +69,23 @@ f-j  │ 5  6   7  8  9 10 20 21│  [VDD SDA GND SCL] [GND VCC SCK SDA]  (MQ-13
 
 ---
 
-## 📂 Source Code Architecture
+## 📂 Source Code Architecture (SOLID / Single Responsibility & KISS)
 
 ```text
 01_env_station/
-├── README.md                 # Project 01 documentation
-├── platformio.ini            # PlatformIO build environments (esp32dev & esp32c3)
+├── README.md                  # Project 01 documentation
+├── platformio.ini             # PlatformIO build environments (esp32dev & esp32c3)
 └── env_station/
-    ├── env_station.ino       # Main application entry point (setup & loop)
-    ├── config.h              # Wi-Fi credentials, automatic pin map & alert thresholds
-    ├── sensors.h             # I2C scanner, sensor acquisition & buzzer alert logic
-    ├── oled_display.h        # 3-slide large-text OLED carousel driver
-    └── web_server.h          # HTTP server & responsive HTML dashboard
+    ├── env_station.ino        # Main orchestrator (non-blocking timers & Wi-Fi lifecycle)
+    ├── config.h               # Pin mapping, NTP config, thresholds & secrets.h loader
+    ├── secrets.example.h      # Template for private Wi-Fi/API credentials
+    ├── time_service.h         # SRP: NTP synchronization (ntp.shoa.cl) & time formatting
+    ├── sensors.h              # SRP: Pure hardware acquisition (AHT20, BMP280, MQ-135)
+    ├── alert_manager.h        # SRP: Threshold evaluation & passive buzzer control
+    ├── stats_logger.h         # SRP: Running Min/Max/Avg & 24h circular RAM buffer + CSV
+    ├── oled_display.h         # SRP: 3-slide large-text OLED carousel + Clock & IP bar
+    ├── index_html.h           # SRP: Isolated HTML5/CSS/JS frontend template (PROGMEM)
+    └── web_server.h           # SRP: REST JSON API (/api/sensors), CSV export & HTTP routes
 ```
 
 ---
@@ -112,8 +117,8 @@ Validated against the official Chilean Meteorological Directorate (DMC) **Quinta
 
 ---
 
-## 🔜 Next Session Roadmap (`v1.2`)
+## 🔗 REST API & Live Endpoints (`v1.2`)
 
-- [ ] **REST JSON API Endpoint (`GET /api/sensors` & `GET /api/history.csv`):** Expose structured JSON telemetry (`temp_aht`, `temp_bmp`, `humidity`, `pressure_hpa`, `mq135_voltage`, `air_ppm`, `air_status`, `alert_active`, `uptime_s`, `rssi_dbm`) and downloadable CSV logs for mobile apps (`iOS` / `Android`), Python data loggers, and TinyML pipelines.
-- [ ] **On-Device Statistics (`Min` / `Max` / `Avg`) & 24-Hour Ring Buffer:** Store the last 24 hours of measurements (e.g., every 5 min = 288 records, $< 5\text{ KB}$ RAM/Flash) plus running `Min`, `Max`, and `Mean` statistics directly inside the `ESP32-C3` so full overnight statistics and charts are available on the web dashboard even with the PC turned off.
-- [ ] **No-Flicker Live Web App (PWA):** Replace the 3-second HTML `<meta http-equiv="refresh">` with asynchronous `fetch('/api/sensors')` updates and real-time trend charts.
+- **`GET /`**: Live responsive dashboard (smooth 2-second `fetch()` updates without page flicker, NTP clock, and `Min / Avg / Max` with timestamps).
+- **`GET /api/sensors`**: Structured JSON telemetry (`timestamp`, `uptime_s`, `current` readings, and running `stats` with `min`, `min_t`, `avg`, `max`, `max_t`).
+- **`GET /api/history.csv`**: Downloadable 24-hour CSV datalog (`288` samples at 5-minute intervals stored in the `ESP32-C3` circular RAM buffer).

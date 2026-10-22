@@ -14,12 +14,17 @@ D:\00_IoT_Projects\
 │   └── 01_env_station/                        # Project 01: Multi-Sensor Environmental & Air Quality Station
 │       ├── README.md                          # Project 01 specific documentation & wiring map
 │       ├── platformio.ini                     # PlatformIO configuration (esp32dev & esp32c3)
-│       └── env_station/                       # Modular C++/Arduino source code
-│           ├── env_station.ino                # Main entry point (setup & loop)
-│           ├── config.h                       # Pin mapping, Wi-Fi config & alert thresholds
-│           ├── sensors.h                      # AHT20, BMP280, MQ-135 (ADC) & Buzzer drivers
-│           ├── oled_display.h                 # Large-text 3-slide carousel for SSD1306 OLED
-│           └── web_server.h                   # Embedded real-time HTML/CSS web dashboard
+│       └── env_station/                       # Modular C++/Arduino source code (SOLID SRP & KISS)
+│           ├── env_station.ino                # Main orchestrator (setup, loop & Wi-Fi lifecycle)
+│           ├── config.h                       # Pin mapping, NTP config, thresholds & secrets loader
+│           ├── secrets.example.h              # Public template for private Wi-Fi/API credentials
+│           ├── time_service.h                 # NTP clock synchronization (ntp.shoa.cl) & formatting
+│           ├── sensors.h                      # Pure sensor acquisition (AHT20, BMP280, MQ-135)
+│           ├── alert_manager.h                # Threshold evaluation & passive buzzer control
+│           ├── stats_logger.h                 # Running Min/Max/Avg & 24h circular RAM buffer + CSV
+│           ├── oled_display.h                 # Large-text 3-slide OLED carousel + Clock & IP bar
+│           ├── index_html.h                   # Isolated HTML5/CSS/JS frontend dashboard template
+│           └── web_server.h                   # REST JSON API (/api/sensors), CSV export & HTTP routes
 ├── docs/
 │   ├── 01_getting_started_esp32.md            # Step-by-step hardware & metrological validation guide
 │   ├── 02_geophysics_and_environment_lab.md   # Architecture: Seismology, 2D ERT, Multi-Zone IoT & Modern Physics

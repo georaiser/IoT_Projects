@@ -1,59 +1,83 @@
 #ifndef WEB_SERVER_H
 #define WEB_SERVER_H
 
+// ============================================================================
+// MODULE: web_server.h
+// Single Responsibility: HTTP routes, JSON API (/api/sensors) & CSV export.
+// Visual template is separated in index_html.h (SRP).
+// ============================================================================
 #include <WebServer.h>
 #include "sensors.h"
+#include "time_service.h"
+#include "stats_logger.h"
+#include "index_html.h"
 
 WebServer server(80);
 
-void renderDashboard() {
-  String airColor = "#4ade80"; // Green
-  if (readings.airStatus == "FAIR")  airColor = "#facc15"; // Yellow
-  if (readings.airStatus == "POOR!") airColor = "#f87171"; // Red
+void handleApiSensors() {
+  uint32_t n = stats.sampleCount;
+  char json[768];
+  snprintf(json, sizeof(json),
+    "{"
+      "\"timestamp\":\"%s\","
+      "\"short_time\":\"%s\","
+      "\"uptime_s\":%lu,"
+      "\"samples\":%lu,"
+      "\"alert\":%s,"
+      "\"current\":{"
+        "\"temp_aht\":%.1f,"
+        "\"temp_bmp\":%.1f,"
+        "\"humidity\":%.1f,"
+        "\"pressure\":%.1f,"
+        "\"air_ppm\":%d,"
+        "\"air_status\":\"%s\","
+        "\"mq135_v\":%.2f,"
+        "\"mq135_raw\":%d"
+      "},"
+      "\"stats\":{"
+        "\"temp\":{\"min\":%.1f,\"min_t\":\"%s\",\"avg\":%.1f,\"max\":%.1f,\"max_t\":\"%s\"},"
+        "\"hum\":{\"min\":%.1f,\"min_t\":\"%s\",\"avg\":%.1f,\"max\":%.1f,\"max_t\":\"%s\"},"
+        "\"pres\":{\"min\":%.1f,\"min_t\":\"%s\",\"avg\":%.1f,\"max\":%.1f,\"max_t\":\"%s\"},"
+        "\"air\":{\"min\":%.0f,\"min_t\":\"%s\",\"avg\":%.0f,\"max\":%.0f,\"max_t\":\"%s\"}"
+      "}"
+    "}",
+    clockState.dateTimeStr.c_str(),
+    clockState.shortTimeStr.c_str(),
+    (unsigned long)clockState.uptimeSec,
+    (unsigned long)n,
+    readings.alertActive ? "true" : "false",
+    readings.tempAHT,
+    readings.tempBMP,
+    readings.humidity,
+    readings.pressure,
+    readings.airQualityPpm,
+    readings.airStatus.c_str(),
+    readings.mq135Voltage,
+    readings.mq135Raw,
+    stats.temp.minVal, stats.temp.minTime.c_str(), stats.temp.avg(n), stats.temp.maxVal, stats.temp.maxTime.c_str(),
+    stats.humidity.minVal, stats.humidity.minTime.c_str(), stats.humidity.avg(n), stats.humidity.maxVal, stats.humidity.maxTime.c_str(),
+    stats.pressure.minVal, stats.pressure.minTime.c_str(), stats.pressure.avg(n), stats.pressure.maxVal, stats.pressure.maxTime.c_str(),
+    stats.airPpm.minVal, stats.airPpm.minTime.c_str(), stats.airPpm.avg(n), stats.airPpm.maxVal, stats.airPpm.maxTime.c_str()
+  );
 
-  String html = R"rawliteral(
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="refresh" content="3">
-  <title>IoT Environmental Station</title>
-  <style>
-    body { font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; text-align: center; margin: 0; padding: 20px; }
-    h1 { font-size: 1.4rem; color: #38bdf8; margin-bottom: 20px; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 15px; max-width: 640px; margin: 0 auto; }
-    .card { background: #1e293b; padding: 18px; border-radius: 12px; border: 1px solid #334155; }
-    .label { font-size: 0.85rem; color: #94a3b8; }
-    .value { font-size: 1.75rem; font-weight: bold; margin-top: 8px; }
-    .sub { font-size: 0.78rem; color: #94a3b8; margin-top: 4px; }
-    .t1 { color: #fb923c; } .t2 { color: #facc15; } .hum { color: #38bdf8; } .pres { color: #4ade80; }
-    .foot { margin-top: 20px; font-size: 0.8rem; color: #64748b; }
-  </style>
-</head>
-<body>
-  <h1>🌱 IoT Environmental Station</h1>
-  <div class="grid">
-    <div class="card"><div class="label">Temp (AHT20)</div><div class="value t1">)rawliteral" + String(readings.tempAHT, 1) + R"rawliteral( °C</div></div>
-    <div class="card"><div class="label">Humidity</div><div class="value hum">)rawliteral" + String(readings.humidity, 1) + R"rawliteral( %</div></div>
-    <div class="card"><div class="label">Pressure</div><div class="value pres">)rawliteral" + String(readings.pressure, 1) + R"rawliteral( hPa</div></div>
-    <div class="card">
-      <div class="label">Air Quality (MQ-135)</div>
-      <div class="value" style="color:)rawliteral" + airColor + R"rawliteral(">)rawliteral" + String(readings.airQualityPpm) + R"rawliteral( ppm</div>
-      <div class="sub">)rawliteral" + readings.airStatus + R"rawliteral( · )rawliteral" + String(readings.mq135Voltage, 2) + R"rawliteral( V (ADC: )rawliteral" + String(readings.mq135Raw) + R"rawliteral()</div>
-    </div>
-    <div class="card"><div class="label">Temp (BMP280)</div><div class="value t2">)rawliteral" + String(readings.tempBMP, 1) + R"rawliteral( °C</div></div>
-  </div>
-  <div class="foot">Auto-refreshing every 3 seconds</div>
-</body>
-</html>
-)rawliteral";
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.send(200, "application/json", json);
+}
 
-  server.send(200, "text/html", html);
+void handleApiHistoryCsv() {
+  String csv = buildHistoryCsv();
+  server.sendHeader("Content-Disposition", "attachment; filename=\"env_station_24h.csv\"");
+  server.send(200, "text/csv", csv);
+}
+
+void handleDashboard() {
+  server.send_P(200, "text/html", INDEX_HTML);
 }
 
 void initWebServer() {
-  server.on("/", renderDashboard);
+  server.on("/", handleDashboard);
+  server.on("/api/sensors", handleApiSensors);
+  server.on("/api/history.csv", handleApiHistoryCsv);
   server.begin();
 }
 
