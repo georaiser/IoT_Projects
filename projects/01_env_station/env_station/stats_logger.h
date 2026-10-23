@@ -110,4 +110,39 @@ String buildHistoryCsv() {
   return csv;
 }
 
+// Build lightweight JSON array of history points for live web charts
+String buildHistoryJson() {
+  String json = "[";
+  json.reserve(historyCount * 36 + 16);
+
+  uint16_t startIdx = (historyCount < MAX_HISTORY_RECORDS) ? 0 : historyHead;
+  for (uint16_t i = 0; i < historyCount; i++) {
+    uint16_t idx = (startIdx + i) % MAX_HISTORY_RECORDS;
+    const HistoryRecord& rec = historyBuffer[idx];
+
+    // Extract HH:MM from timeLabel (e.g. "2026-10-22 20:17:00" -> "20:17")
+    char tShort[6] = "--:--";
+    if (strlen(rec.timeLabel) >= 16) {
+      tShort[0] = rec.timeLabel[11];
+      tShort[1] = rec.timeLabel[12];
+      tShort[2] = ':';
+      tShort[3] = rec.timeLabel[14];
+      tShort[4] = rec.timeLabel[15];
+      tShort[5] = '\0';
+    }
+
+    char item[48];
+    snprintf(item, sizeof(item), "%s[\"%s\",%.1f,%.1f,%.1f,%u]",
+             (i > 0) ? "," : "",
+             tShort,
+             rec.tempX10 / 10.0f,
+             rec.humX10 / 10.0f,
+             rec.presX10 / 10.0f,
+             rec.airPpm);
+    json += item;
+  }
+  json += "]";
+  return json;
+}
+
 #endif

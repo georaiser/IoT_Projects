@@ -3,8 +3,8 @@
 
 // ============================================================================
 // MODULE: web_server.h
-// Single Responsibility: HTTP routes, JSON API (/api/sensors) & CSV export.
-// Visual template is separated in index_html.h (SRP).
+// Single Responsibility: HTTP routes, JSON APIs (/api/sensors, /api/history)
+// and CSV export. Visual template is cleanly isolated in index_html.h (SRP).
 // ============================================================================
 #include <WebServer.h>
 #include "sensors.h"
@@ -64,6 +64,12 @@ void handleApiSensors() {
   server.send(200, "application/json", json);
 }
 
+void handleApiHistoryJson() {
+  String json = buildHistoryJson();
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.send(200, "application/json", json);
+}
+
 void handleApiHistoryCsv() {
   String csv = buildHistoryCsv();
   server.sendHeader("Content-Disposition", "attachment; filename=\"env_station_24h.csv\"");
@@ -77,6 +83,7 @@ void handleDashboard() {
 void initWebServer() {
   server.on("/", handleDashboard);
   server.on("/api/sensors", handleApiSensors);
+  server.on("/api/history", handleApiHistoryJson);
   server.on("/api/history.csv", handleApiHistoryCsv);
   server.begin();
 }

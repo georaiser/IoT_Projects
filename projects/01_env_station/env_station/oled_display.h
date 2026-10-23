@@ -3,18 +3,19 @@
 
 // ============================================================================
 // MODULE: oled_display.h
-// Single Responsibility: Render telemetry, time, and IP on SSD1306 OLED.
-// Decoupled from WiFi.h and NTP internals (receives data via parameters).
+// Single Responsibility: Render telemetry, dynamic Min-Max graphs (Temp & Hum),
+// and status bar on SSD1306 OLED.
 // ============================================================================
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include "config.h"
 #include "sensors.h"
+#include "stats_logger.h"
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET, 100000UL, 100000UL);
 
 bool    hasOLED      = false;
-uint8_t currentSlide = 0; // 0 = Temp/Hum, 1 = Pressure, 2 = Air Quality
+uint8_t currentSlide = 0; // 0=T/H, 1=Press, 2=Air, 3=Temp Graph, 4=Hum Graph
 
 void initDisplay() {
   if (isI2CDevicePresent(OLED_I2C_ADDR) &&
@@ -34,30 +35,85 @@ void initDisplay() {
   }
 }
 
+// Render dynamic graph with dynamic Min-Max scaling for OLED
+void renderOledGraph(const char* label, float minV, float maxV, const char* unit, bool isTemp) {
+  // 1. Top header (y = 0..14)
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.printf("%s 24H", label);
+
+  display.setCursor(70, 0);
+  display.printf("MX:%.1f", maxV);
+
+  display.setCursor(70, 8);
+  display.printf("MN:%.1f", minV);
+
+  // 2. Graph plot region: x = 0..127, y = 18..51 (height = 33 px)
+  display.drawLine(0, 16, 127, 16, SSD1306_WHITE); // Upper separator line
+  display.drawLine(0, 52, 127, 52, SSD1306_WHITE); // Lower separator line
+
+  float span = maxV - minV;
+  if (span < 0.1f) span = 1.0f; // Prevent division by zero
+
+  if (historyCount >= 2) {
+    uint16_t startIdx = (historyCount < MAX_HISTORY_RECORDS) ? 0 : historyHead;
+    int prevX = -1;
+    int prevY = -1;
+
+    for (uint16_t i = 0; i < historyCount; i++) {
+      uint16_t idx = (startIdx + i) % MAX_HISTORY_RECORDS;
+      float val = isTemp ? (historyBuffer[idx].tempX10 / 10.0f) : (historyBuffer[idx].humX10 / 10.0f);
+
+      int x = (int)((i * 127.0f) / (historyCount - 1));
+      float norm = (val - minV) / span;
+      if (norm < 0.0f) norm = 0.0f;
+      if (norm > 1.0f) norm = 1.0f;
+      int y = 50 - (int)(norm * 32.0f); // 50 is bottom, 18 is top
+
+      if (prevX >= 0) {
+        display.drawLine(prevX, prevY, x, y, SSD1306_WHITE);
+      } else {
+        display.drawPixel(x, y, SSD1306_WHITE);
+      }
+      prevX = x;
+      prevY = y;
+    }
+  } else {
+    display.setCursor(20, 30);
+    display.print("Collecting data...");
+  }
+}
+
 void updateDisplay(const SensorReadings& r, const String& shortTime, const String& ipStr) {
   if (!hasOLED) return;
 
   display.clearDisplay();
   display.setTextColor(SSD1306_WHITE);
-  display.setTextSize(2); // Large 12x16 px characters
 
-  // y = 0..15  fits inside the top YELLOW zone
-  // y = 28..43 fits inside the bottom BLUE zone
   if (currentSlide == 0) {
+    display.setTextSize(2);
     display.setCursor(4, 0);
     display.printf("T: %.1f C", r.tempAHT);
     display.setCursor(4, 28);
     display.printf("H: %.1f %%", r.humidity);
   } else if (currentSlide == 1) {
+    display.setTextSize(2);
     display.setCursor(10, 0);
     display.print("PRESSURE");
     display.setCursor(4, 28);
     display.printf("%.1f hPa", r.pressure);
-  } else {
+  } else if (currentSlide == 2) {
+    display.setTextSize(2);
     display.setCursor(4, 0);
     display.printf("AIR %s", r.airStatus.c_str());
     display.setCursor(4, 28);
     display.printf("%d ppm", r.airQualityPpm);
+  } else if (currentSlide == 3) {
+    // Dynamic Temperature Graph scaled between 24h min and max
+    renderOledGraph("TEMP", stats.temp.minVal, stats.temp.maxVal, "C", true);
+  } else {
+    // Dynamic Humidity Graph scaled between 24h min and max
+    renderOledGraph("HUM", stats.humidity.minVal, stats.humidity.maxVal, "%", false);
   }
 
   // Bottom status bar (y = 55..63): Live Clock (HH:MM) + IP Address
@@ -69,7 +125,7 @@ void updateDisplay(const SensorReadings& r, const String& shortTime, const Strin
 }
 
 void nextDisplaySlide(const SensorReadings& r, const String& shortTime, const String& ipStr) {
-  currentSlide = (currentSlide + 1) % 3;
+  currentSlide = (currentSlide + 1) % 5;
   updateDisplay(r, shortTime, ipStr);
 }
 

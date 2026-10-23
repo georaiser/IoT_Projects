@@ -119,6 +119,16 @@ Validated against the official Chilean Meteorological Directorate (DMC) **Quinta
 
 ## 🔗 REST API & Live Endpoints (`v1.2`)
 
-- **`GET /`**: Live responsive dashboard (smooth 2-second `fetch()` updates without page flicker, NTP clock, and `Min / Avg / Max` with timestamps).
+- **`GET /`**: Live responsive dashboard featuring smooth 2-second `fetch()` telemetry, live NTP clock, real-time statistics (`Min / Avg / Max` with timestamps), and **historical charts with fixed metrological scales** (Temp: 10–40 °C, Hum: 20–90%, Pres: 940–970 hPa, Air: 400–2000 ppm).
 - **`GET /api/sensors`**: Structured JSON telemetry (`timestamp`, `uptime_s`, `current` readings, and running `stats` with `min`, `min_t`, `avg`, `max`, `max_t`).
+- **`GET /api/history`**: Compact JSON array of 24h data points (`[timestamp_short, temp, hum, pres, air_ppm]`) powering the frontend charts.
 - **`GET /api/history.csv`**: Downloadable 24-hour CSV datalog (`288` samples at 5-minute intervals stored in the `ESP32-C3` circular RAM buffer).
+
+---
+
+## 📊 Dual Display & Visualization Architecture
+
+| Surface | Target Variable(s) | Scaling Type | Features |
+|---|---|---|---|
+| **OLED (`SSD1306`)** | Slides 3 & 4: `Temp` & `Humidity` | **Dynamic Scale** ($\text{Min}$ to $\text{Max}$) | Automatically scales to the exact 24h extreme values registered on-device, maximizing visual contrast on a 128x64 display. |
+| **Web Dashboard (`HTML5`)** | Full Suite: `Temp`, `Hum`, `Pres`, `Air` | **Fixed Scale** (Standard Metrological Range) | Consistent reference axes prevent misleading visual jumps during quiet periods and allow direct visual comparison. |
