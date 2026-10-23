@@ -203,12 +203,34 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
         ctx.fill();
       }
 
-      // Draw first and last time labels
+      // Draw clean X-axis time scale (max 4-5 evenly spaced ticks)
       ctx.fillStyle = '#94a3b8';
-      ctx.textAlign = 'left';
-      ctx.fillText(historyData[0][0], padL, H - 6);
-      ctx.textAlign = 'right';
-      ctx.fillText(historyData[n - 1][0], W - padR, H - 6);
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1;
+
+      if (n === 1) {
+        ctx.textAlign = 'center';
+        ctx.fillText(historyData[0][0], padL + plotW / 2, H - 6);
+      } else {
+        const xTicks = Math.min(n, 5); // 2 to 5 clean labels, never cluttered
+        for (let t = 0; t < xTicks; t++) {
+          const dataIdx = Math.round(t * (n - 1) / (xTicks - 1));
+          const px = padL + (plotW * dataIdx / (n - 1));
+          
+          // Subtle vertical tick line
+          ctx.beginPath();
+          ctx.moveTo(px, padT);
+          ctx.lineTo(px, padT + plotH);
+          ctx.stroke();
+
+          // Time text alignment
+          if (t === 0) ctx.textAlign = 'left';
+          else if (t === xTicks - 1) ctx.textAlign = 'right';
+          else ctx.textAlign = 'center';
+
+          ctx.fillText(historyData[dataIdx][0], px, H - 6);
+        }
+      }
     }
 
     async function fetchHistory() {

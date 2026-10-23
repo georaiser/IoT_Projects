@@ -1,17 +1,11 @@
 // ============================================================================
 // IoT ENVIRONMENTAL STATION v1.2 (ESP32 DevKit 30P / ESP32-C3 Super Mini)
 // Architecture: SOLID (Single Responsibility Principle) & KISS
-// Modules:
-//   - config.h        : Hardware pin map, constants & secrets.h loader
-//   - time_service.h  : NTP synchronization (Chile UTC-3) & time formatting
-//   - sensors.h       : Pure sensor acquisition (AHT20, BMP280, MQ-135)
-//   - alert_manager.h : Threshold evaluation & passive buzzer control
-//   - stats_logger.h  : Running Min/Max/Avg & 24h RAM circular history buffer
-//   - oled_display.h  : Large-text 3-slide OLED carousel + Clock & IP bar
-//   - web_server.h    : REST JSON API (/api/sensors), CSV export & live UI
+// Features: NTP Clock, REST API, Smooth Web Dashboard, Dynamic Charts & OTA
 // ============================================================================
 #include <WiFi.h>
 #include <ESPmDNS.h>
+#include <ArduinoOTA.h>
 #include <Wire.h>
 #include "config.h"
 #include "time_service.h"
@@ -75,6 +69,11 @@ void setup() {
   initTimeService();
   initWebServer();
 
+  // Initialize Wireless Over-The-Air (OTA) flashing
+  ArduinoOTA.setHostname("env-station");
+  ArduinoOTA.begin();
+  Serial.println("--> ArduinoOTA: Ready for wireless Wi-Fi flashing");
+
   // Initial acquisition and first history record
   updateTimeService();
   readSensors();
@@ -85,6 +84,7 @@ void setup() {
 }
 
 void loop() {
+  ArduinoOTA.handle(); // Listen for wireless firmware uploads
   server.handleClient();
 
   unsigned long now = millis();

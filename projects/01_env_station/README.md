@@ -18,6 +18,8 @@ A real-time IoT environmental telemetry and air quality monitoring station suppo
     4. **Slide 3:** **Dynamic Temperature Chart** (auto-scaled between 24h Min & Max with upper/lower bounds)
     5. **Slide 4:** **Dynamic Humidity Chart** (auto-scaled between 24h Min & Max)
     - **Bottom Status Bar:** Continuously displays live atomic clock (`HH:MM`) and IP address.
+- **Wireless Over-The-Air (OTA) Updates (`v1.2`):**
+  - Integrated `ArduinoOTA` listener: all future firmware builds can be uploaded over Wi-Fi without needing a USB cable or touching the board in the bedroom.
 - **Embedded Wi-Fi Web Server & REST API (`v1.2`):**
   - Modular frontend template in `index_html.h` running in PROGMEM.
   - Zero-flicker asynchronous `fetch()` polling every 2 seconds.
