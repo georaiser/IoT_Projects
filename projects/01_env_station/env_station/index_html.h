@@ -4,7 +4,7 @@
 // ============================================================================
 // MODULE: index_html.h
 // Single Responsibility: Static HTML/CSS/JS dashboard template (stored in PROGMEM).
-// Features: Fixed-scale charts for Temp, Hum, Pres & Air, real-time sync.
+// Features: Dynamic auto-scaling (with Fixed toggle), multi-metric tabs.
 // ============================================================================
 #include <pgmspace.h>
 
@@ -30,9 +30,11 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
     
     /* Chart Section */
     .chart-box { background: #1e293b; border: 1px solid #334155; border-radius: 12px; max-width: 680px; margin: 14px auto 0 auto; padding: 12px; }
-    .tabs { display: flex; gap: 6px; justify-content: center; margin-bottom: 10px; flex-wrap: wrap; }
-    .tab-btn { background: #0f172a; color: #94a3b8; border: 1px solid #334155; border-radius: 6px; padding: 5px 10px; font-size: 0.75rem; cursor: pointer; }
+    .tabs-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+    .tabs { display: flex; gap: 5px; flex-wrap: wrap; }
+    .tab-btn { background: #0f172a; color: #94a3b8; border: 1px solid #334155; border-radius: 6px; padding: 5px 9px; font-size: 0.75rem; cursor: pointer; }
     .tab-btn.active { background: #38bdf8; color: #0f172a; font-weight: 700; border-color: #38bdf8; }
+    .mode-btn { background: #334155; color: #38bdf8; border: 1px solid #475569; border-radius: 6px; padding: 5px 9px; font-size: 0.72rem; cursor: pointer; font-weight: 600; }
     canvas { width: 100%; height: 180px; display: block; }
     .scale-info { font-size: 0.72rem; color: #94a3b8; margin-top: 6px; }
 
@@ -69,16 +71,19 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
     </div>
   </div>
 
-  <!-- Historical Fixed Scale Charts -->
+  <!-- Historical Charts with Dynamic/Fixed Scale Toggle -->
   <div class="chart-box">
-    <div class="tabs">
-      <button class="tab-btn active" onclick="setChart('temp')">Temp (10–40 °C)</button>
-      <button class="tab-btn" onclick="setChart('hum')">Humidity (20–90 %)</button>
-      <button class="tab-btn" onclick="setChart('pres')">Pressure (940–970 hPa)</button>
-      <button class="tab-btn" onclick="setChart('air')">Air (400–2000 ppm)</button>
+    <div class="tabs-row">
+      <div class="tabs">
+        <button class="tab-btn active" onclick="setChart('temp')">Temperature</button>
+        <button class="tab-btn" onclick="setChart('hum')">Humidity</button>
+        <button class="tab-btn" onclick="setChart('pres')">Pressure</button>
+        <button class="tab-btn" onclick="setChart('air')">Air Quality</button>
+      </div>
+      <button class="mode-btn" id="modeBtn" onclick="toggleScale()">Mode: Dynamic (Auto Zoom)</button>
     </div>
     <canvas id="cv" width="650" height="180"></canvas>
-    <div class="scale-info" id="scaleInfo">Fixed Scale: 10.0 °C to 40.0 °C</div>
+    <div class="scale-info" id="scaleInfo">Dynamic Scale: Auto-fitting Min to Max</div>
   </div>
 
   <div class="actions">
@@ -89,13 +94,14 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
   <script>
     let activeMetric = 'temp';
+    let isDynamic = true; // Default: Dynamic scale for high detail
     let historyData = [];
 
     const SCALES = {
-      temp: { min: 10.0,  max: 40.0,   unit: '°C',  color: '#fb923c', label: 'Temperature (Fixed Scale: 10 to 40 °C)' },
-      hum:  { min: 20.0,  max: 90.0,   unit: '%',   color: '#38bdf8', label: 'Humidity (Fixed Scale: 20 to 90 %)' },
-      pres: { min: 940.0, max: 970.0,  unit: 'hPa', color: '#4ade80', label: 'Barometric Pressure (Fixed Scale: 940 to 970 hPa)' },
-      air:  { min: 400.0, max: 2000.0, unit: 'ppm', color: '#facc15', label: 'Air Quality Index (Fixed Scale: 400 to 2000 ppm)' }
+      temp: { fixedMin: 10.0,  fixedMax: 40.0,   unit: '°C',  color: '#fb923c', title: 'Temperature' },
+      hum:  { fixedMin: 20.0,  fixedMax: 90.0,   unit: '%',   color: '#38bdf8', title: 'Humidity' },
+      pres: { fixedMin: 940.0, fixedMax: 970.0,  unit: 'hPa', color: '#4ade80', title: 'Barometric Pressure' },
+      air:  { fixedMin: 400.0, fixedMax: 2000.0, unit: 'ppm', color: '#facc15', title: 'Air Quality (CO2 eq)' }
     };
 
     function setChart(m) {
@@ -103,7 +109,12 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
       document.querySelectorAll('.tab-btn').forEach((b, i) => {
         b.classList.toggle('active', ['temp','hum','pres','air'][i] === m);
       });
-      document.getElementById('scaleInfo').textContent = SCALES[m].label;
+      drawChart();
+    }
+
+    function toggleScale() {
+      isDynamic = !isDynamic;
+      document.getElementById('modeBtn').textContent = isDynamic ? 'Mode: Dynamic (Auto Zoom)' : 'Mode: Fixed Scale';
       drawChart();
     }
 
@@ -114,9 +125,27 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
       ctx.clearRect(0, 0, W, H);
 
       const cfg = SCALES[activeMetric];
-      const padL = 40, padR = 15, padT = 15, padB = 25;
+      const mIdx = { temp: 1, hum: 2, pres: 3, air: 4 }[activeMetric];
+      const padL = 46, padR = 15, padT = 15, padB = 25;
       const plotW = W - padL - padR;
       const plotH = H - padT - padB;
+
+      // Determine scale range
+      let yMin = cfg.fixedMin;
+      let yMax = cfg.fixedMax;
+
+      if (isDynamic && historyData && historyData.length > 0) {
+        let vals = historyData.map(d => d[mIdx]);
+        let dMin = Math.min(...vals);
+        let dMax = Math.max(...vals);
+        let margin = (dMax - dMin) * 0.15;
+        if (margin < 0.2) margin = 0.5; // Minimum margin if values are flat
+        yMin = dMin - margin;
+        yMax = dMax + margin;
+      }
+
+      document.getElementById('scaleInfo').textContent = (isDynamic ? 'Dynamic Zoom: ' : 'Fixed Range: ') +
+        yMin.toFixed(1) + (activeMetric==='air'?'':cfg.unit) + ' to ' + yMax.toFixed(1) + (activeMetric==='air'?'':cfg.unit);
 
       // Draw Grid & Y Labels
       ctx.strokeStyle = '#334155';
@@ -126,13 +155,13 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
       const steps = 4;
       for (let s = 0; s <= steps; s++) {
-        const yVal = cfg.min + ((cfg.max - cfg.min) * (steps - s) / steps);
+        const yVal = yMin + ((yMax - yMin) * (steps - s) / steps);
         const py = padT + (plotH * s / steps);
         ctx.beginPath();
         ctx.moveTo(padL, py);
         ctx.lineTo(W - padR, py);
         ctx.stroke();
-        ctx.fillText(yVal.toFixed(activeMetric === 'pres' ? 0 : 0) + (activeMetric==='air'?'':cfg.unit), padL - 6, py + 4);
+        ctx.fillText(yVal.toFixed(activeMetric === 'pres' || activeMetric === 'air' ? 0 : 1) + (activeMetric==='air'?'':cfg.unit), padL - 6, py + 4);
       }
 
       if (!historyData || historyData.length === 0) {
@@ -143,7 +172,6 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
       }
 
       // Plot data line
-      const mIdx = { temp: 1, hum: 2, pres: 3, air: 4 }[activeMetric];
       ctx.beginPath();
       ctx.strokeStyle = cfg.color;
       ctx.lineWidth = 2.5;
@@ -152,7 +180,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
       for (let i = 0; i < n; i++) {
         const val = historyData[i][mIdx];
         const px = padL + (n > 1 ? (plotW * i / (n - 1)) : (plotW / 2));
-        let norm = (val - cfg.min) / (cfg.max - cfg.min);
+        let norm = (val - yMin) / (yMax - yMin);
         if (norm < 0) norm = 0; if (norm > 1) norm = 1;
         const py = padT + plotH * (1.0 - norm);
 
@@ -160,6 +188,20 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
         else ctx.lineTo(px, py);
       }
       ctx.stroke();
+
+      // Highlight latest point with a filled dot
+      if (n > 0) {
+        const lastVal = historyData[n - 1][mIdx];
+        const lastX = padL + (n > 1 ? plotW : (plotW / 2));
+        let norm = (lastVal - yMin) / (yMax - yMin);
+        if (norm < 0) norm = 0; if (norm > 1) norm = 1;
+        const lastY = padT + plotH * (1.0 - norm);
+
+        ctx.fillStyle = cfg.color;
+        ctx.beginPath();
+        ctx.arc(lastX, lastY, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
       // Draw first and last time labels
       ctx.fillStyle = '#94a3b8';
@@ -212,7 +254,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
     refreshData();
     fetchHistory();
     setInterval(refreshData, 2000);
-    setInterval(fetchHistory, 30000); // Update chart history every 30s
+    setInterval(fetchHistory, 30000);
   </script>
 </body>
 </html>

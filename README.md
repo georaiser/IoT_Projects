@@ -46,7 +46,7 @@ D:\00_IoT_Projects\
 
 | ID | Project | Target MCU | Core Sensors / Hardware | Status |
 |:--:|---|---|---|---|
-| **01** | **Environmental & Air Quality Station** (`projects/01_env_station`) | `ESP32 DevKit 30P` / `ESP32-C3 Super Mini` | `AHT20` (Temp/RH), `BMP280` (Barometric Pressure), `MQ-135` (Air Quality/Gas), `SSD1306 OLED`, Passive Buzzer | ✅ **Validated** (Calibrated vs. DMC Quinta Normal `330020`) |
+| **01** | **Environmental & Air Quality Station** (`projects/01_env_station`) | `ESP32 DevKit 30P` / `ESP32-C3 Super Mini` | `AHT20` (Temp/RH), `BMP280` (Pressure), `MQ-135` (Air/Gas), `SSD1306 OLED`, Buzzer, NTP Clock | ✅ **Operational (v1.2)** (SOLID/KISS, REST API, Dynamic OLED & Web Charts, DMC Quinta Normal Calibrated) |
 | **02** | **2D Electrical Resistivity Tomography (ERT) Mini-Meter** | `ESP32 DevKit 30P` | `ADS1115` (16-bit Differential ADC), Bipolar Injection (`D25`/`D26`), $1\text{ k}\Omega$ Shunt, 4 Wenner Electrodes | 🔜 Next (`RES2DINV` `.dat` / `ResIPy` / `pyGIMLi` export) |
 | **03** | **Modern Physics Lab: Planck's Constant ($h$)** | `ESP32 DevKit 30P` | 8-bit `DAC` (`D25`), `ADS1115` (16-bit), Multi-wavelength LEDs ($470\text{–}940\text{ nm}$) | 📋 Planned ($e V_0 = h\nu - \phi$ linear regression) |
 | **04** | **Spectral Remote Sensing: Proximal Active `NDVI` Sensor** | `ESP32 DevKit 30P` / `C3` | Red LED ($625\text{ nm}$), NIR Emitter/Photodiode ($940\text{ nm}$, `HW-201`), `ADS1115`, `BH1750` | 📋 Planned ($\text{NDVI} = \frac{\rho_{\text{NIR}} - \rho_{\text{Red}}}{\rho_{\text{NIR}} + \rho_{\text{Red}}}$) |

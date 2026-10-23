@@ -11,14 +11,19 @@ A real-time IoT environmental telemetry and air quality monitoring station suppo
   - **`BMP280` (`0x77` / `0x76` I2C):** Barometric pressure ($\pm 1\text{ hPa}$, configured in `MODE_FORCED` to eliminate self-heating).
   - **`MQ-135` (Analog `ADC1`):** Air quality / VOC / $\text{CO}_2$ / gas detection via a protective $10\text{ k}\Omega / 10\text{ k}\Omega$ voltage divider ($5\text{ V} \to 2.5\text{ V}$ max) and high-sensitivity `ADC_2_5db` attenuation.
 - **Large-Text OLED Carousel (`SSD1306 0.96"`, `0x3C` I2C):**
-  - Automatically rotates every $3\text{ s}$ across 3 high-contrast `TextSize(2)` views aligned with the dual-color yellow/blue pixel zones:
+  - Automatically rotates every $3\text{ s}$ across 5 high-contrast views including real-time charts:
     1. **Slide 0:** Temperature (`T: XX.X C`) + Humidity (`H: XX.X %`)
     2. **Slide 1:** Atmospheric Pressure (`PRESSURE` / `XXXX.X hPa`)
     3. **Slide 2:** Air Quality Status (`AIR GOOD/FAIR/POOR!`) + Concentration (`XXXX ppm`)
+    4. **Slide 3:** **Dynamic Temperature Chart** (auto-scaled between 24h Min & Max with upper/lower bounds)
+    5. **Slide 4:** **Dynamic Humidity Chart** (auto-scaled between 24h Min & Max)
+    - **Bottom Status Bar:** Continuously displays live atomic clock (`HH:MM`) and IP address.
+- **Embedded Wi-Fi Web Server & REST API (`v1.2`):**
+  - Modular frontend template in `index_html.h` running in PROGMEM.
+  - Zero-flicker asynchronous `fetch()` polling every 2 seconds.
+  - Dynamic auto-scaling charts with a toggle to standard fixed metrological ranges.
+  - Endpoints: `GET /` (Dashboard), `GET /api/sensors` (JSON), `GET /api/history` (JSON points), `GET /api/history.csv` (24h CSV download).
 - **Acoustic Alert System (Passive Buzzer):**
-  - Emits a short startup confirmation beep (`2000 Hz`) on boot and a double alert beep (`2500 Hz`) when temperature or air quality exceeds safety thresholds defined in `config.h`.
-- **Embedded Wi-Fi Web Server (`Port 80`):**
-  - Responsive dark-mode dashboard auto-refreshing every $3\text{ s}$ on any browser in the local network.
 
 ---
 
@@ -119,7 +124,7 @@ Validated against the official Chilean Meteorological Directorate (DMC) **Quinta
 
 ## 🔗 REST API & Live Endpoints (`v1.2`)
 
-- **`GET /`**: Live responsive dashboard featuring smooth 2-second `fetch()` telemetry, live NTP clock, real-time statistics (`Min / Avg / Max` with timestamps), and **historical charts with fixed metrological scales** (Temp: 10–40 °C, Hum: 20–90%, Pres: 940–970 hPa, Air: 400–2000 ppm).
+- **`GET /`**: Live responsive dashboard featuring smooth 2-second `fetch()` telemetry, live NTP clock, real-time statistics (`Min / Avg / Max` with timestamps), and **adaptive charts with dynamic auto-scaling** (auto-fitting the vertical axis to real-time Min–Max bounds with a fixed-scale toggle button).
 - **`GET /api/sensors`**: Structured JSON telemetry (`timestamp`, `uptime_s`, `current` readings, and running `stats` with `min`, `min_t`, `avg`, `max`, `max_t`).
 - **`GET /api/history`**: Compact JSON array of 24h data points (`[timestamp_short, temp, hum, pres, air_ppm]`) powering the frontend charts.
 - **`GET /api/history.csv`**: Downloadable 24-hour CSV datalog (`288` samples at 5-minute intervals stored in the `ESP32-C3` circular RAM buffer).
@@ -131,4 +136,4 @@ Validated against the official Chilean Meteorological Directorate (DMC) **Quinta
 | Surface | Target Variable(s) | Scaling Type | Features |
 |---|---|---|---|
 | **OLED (`SSD1306`)** | Slides 3 & 4: `Temp` & `Humidity` | **Dynamic Scale** ($\text{Min}$ to $\text{Max}$) | Automatically scales to the exact 24h extreme values registered on-device, maximizing visual contrast on a 128x64 display. |
-| **Web Dashboard (`HTML5`)** | Full Suite: `Temp`, `Hum`, `Pres`, `Air` | **Fixed Scale** (Standard Metrological Range) | Consistent reference axes prevent misleading visual jumps during quiet periods and allow direct visual comparison. |
+| **Web Dashboard (`HTML5`)** | Full Suite: `Temp`, `Hum`, `Pres`, `Air` | **Dynamic Scale by default** (with toggle to Fixed Range) | Dynamically zooms in on real 24h min-max range (with 15% margins) to highlight subtle microclimate variations, with a one-click toggle to standard fixed ranges. |
