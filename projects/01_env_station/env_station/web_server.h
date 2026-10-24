@@ -16,7 +16,8 @@ WebServer server(80);
 
 void handleApiSensors() {
   uint32_t n = stats.sampleCount;
-  char json[768];
+  StorageInfo sInfo = getStorageInfo();
+  char json[896];
   snprintf(json, sizeof(json),
     "{"
       "\"timestamp\":\"%s\","
@@ -24,6 +25,13 @@ void handleApiSensors() {
       "\"uptime_s\":%lu,"
       "\"samples\":%lu,"
       "\"alert\":%s,"
+      "\"storage\":{"
+        "\"used_kb\":%.1f,"
+        "\"total_kb\":%.1f,"
+        "\"pct\":%.1f,"
+        "\"days_left\":%u,"
+        "\"warning\":%s"
+      "},"
       "\"current\":{"
         "\"temp_aht\":%.1f,"
         "\"temp_bmp\":%.1f,"
@@ -46,6 +54,11 @@ void handleApiSensors() {
     (unsigned long)clockState.uptimeSec,
     (unsigned long)n,
     readings.alertActive ? "true" : "false",
+    sInfo.fileBytes / 1024.0f,
+    sInfo.maxBytes / 1024.0f,
+    sInfo.usedPct,
+    (unsigned int)sInfo.daysLeft,
+    sInfo.warning ? "true" : "false",
     readings.tempAHT,
     readings.tempBMP,
     readings.humidity,
@@ -71,9 +84,29 @@ void handleApiHistoryJson() {
 }
 
 void handleApiHistoryCsv() {
+  if (littleFsOk && LittleFS.exists(HISTORY_FILE_PATH)) {
+    File f = LittleFS.open(HISTORY_FILE_PATH, "r");
+    if (f) {
+      server.sendHeader("Content-Disposition", "attachment; filename=\"env_station_history.csv\"");
+      server.streamFile(f, "text/csv");
+      f.close();
+      return;
+    }
+  }
   String csv = buildHistoryCsv();
   server.sendHeader("Content-Disposition", "attachment; filename=\"env_station_24h.csv\"");
   server.send(200, "text/csv", csv);
+}
+
+void handleApiClearHistory() {
+  if (server.hasArg("confirm") && server.arg("confirm") == "true") {
+    clearHistoryStorage();
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.send(200, "application/json", "{\"status\":\"ok\",\"message\":\"History purged from Flash and RAM\"}");
+  } else {
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing confirm=true\"}");
+  }
 }
 
 void handleDashboard() {
@@ -85,6 +118,7 @@ void initWebServer() {
   server.on("/api/sensors", handleApiSensors);
   server.on("/api/history", handleApiHistoryJson);
   server.on("/api/history.csv", handleApiHistoryCsv);
+  server.on("/api/history/clear", handleApiClearHistory);
   server.begin();
 }
 

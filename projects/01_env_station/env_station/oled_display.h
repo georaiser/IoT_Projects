@@ -116,10 +116,15 @@ void updateDisplay(const SensorReadings& r, const String& shortTime, const Strin
     renderOledGraph("HUM", stats.humidity.minVal, stats.humidity.maxVal, "%", false);
   }
 
-  // Bottom status bar (y = 55..63): Live Clock (HH:MM) + IP Address
+  // Bottom status bar (y = 55..63): Live Clock (HH:MM) + IP Address or Storage Warning
+  StorageInfo sInfo = getStorageInfo();
   display.setTextSize(1);
   display.setCursor(0, 55);
-  display.printf("%s | %s", shortTime.c_str(), ipStr.c_str());
+  if (sInfo.warning) {
+    display.printf("%s | MEM LOW!", shortTime.c_str());
+  } else {
+    display.printf("%s | %s", shortTime.c_str(), ipStr.c_str());
+  }
 
   display.display();
 }

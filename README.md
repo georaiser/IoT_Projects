@@ -29,7 +29,8 @@ D:\00_IoT_Projects\
 │   ├── 01_getting_started_esp32.md            # Step-by-step hardware & metrological validation guide
 │   ├── 02_geophysics_and_environment_lab.md   # Architecture: Seismology, 2D ERT, Multi-Zone IoT & Modern Physics
 │   ├── 03_edge_ai_tinyml_roadmap.md           # Edge AI (TinyML) & Scientific ML roadmap (AI-1 to AI-9)
-│   └── 04_mamba_cuda_esp32_setup.md           # Python (Mamba/CUDA) + ESP32 development environment guide
+│   ├── 04_mamba_cuda_esp32_setup.md           # Python (Mamba/CUDA) + ESP32 development environment guide
+│   └── 05_cpp_for_python_java_programmers.md   # C++ for Python, Java & JS developers (Rosetta stone & API reference)
 ├── hardware_inventory/
 │   ├── hardware_catalog.html                  # Interactive bill of materials (BOM) & sensor specs
 │   └── inventory_check.xlsx                   # Hardware inventory spreadsheet

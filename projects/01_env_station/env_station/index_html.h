@@ -46,6 +46,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
 <body>
   <h1>🌱 IoT Environmental Station</h1>
   <div class="clock" id="clock">Syncing clock...</div>
+  <div id="storageAlert" style="display:none;background:#7f1d1d;border:1px solid #ef4444;color:#fee2e2;padding:8px 12px;border-radius:8px;font-size:0.75rem;margin-bottom:12px;font-weight:600;"></div>
 
   <div class="grid">
     <div class="card">
@@ -90,7 +91,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
     <a class="btn" href="/api/history.csv">📥 Download 24h CSV</a>
     <a class="btn" href="/api/sensors" target="_blank">🔗 JSON API</a>
   </div>
-  <div class="foot">Live updates every 2s · Smooth auto-sync</div>
+  <div class="foot">Live updates every 2s · <span id="storageInfo">Flash: -- KB / 512 KB</span></div>
 
   <script>
     let activeMetric = 'temp';
@@ -270,6 +271,17 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
         document.getElementById('a_min').textContent = 'Min ' + d.stats.air.min.toFixed(0);
         document.getElementById('a_avg').textContent = 'Avg ' + d.stats.air.avg.toFixed(0);
         document.getElementById('a_max').textContent = 'Max ' + d.stats.air.max.toFixed(0) + ' (' + d.stats.air.max_t + ')';
+
+        if (d.storage) {
+          const alertEl = document.getElementById('storageAlert');
+          if (d.storage.warning) {
+            alertEl.style.display = 'block';
+            alertEl.textContent = '⚠️ Flash Storage Low: ~' + d.storage.days_left + ' day(s) left (' + d.storage.pct.toFixed(0) + '% full). Run sync_station_data.py --purge to backup and free memory.';
+          } else {
+            alertEl.style.display = 'none';
+          }
+          document.getElementById('storageInfo').textContent = 'Flash: ' + d.storage.used_kb.toFixed(1) + ' KB / ' + d.storage.total_kb.toFixed(0) + ' KB (~' + d.storage.days_left + 'd left)';
+        }
       } catch (e) {}
     }
 

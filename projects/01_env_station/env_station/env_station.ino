@@ -74,6 +74,19 @@ void setup() {
   ArduinoOTA.begin();
   Serial.println("--> ArduinoOTA: Ready for wireless Wi-Fi flashing");
 
+  // Wait up to 2.5 seconds for NTP sync so the first history record has a valid timestamp
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.print("Synchronizing NTP time");
+    int ntpWait = 0;
+    while (!clockState.synced && ntpWait < 25) {
+      delay(100);
+      updateTimeService();
+      Serial.print(".");
+      ntpWait++;
+    }
+    Serial.println(clockState.synced ? " OK!" : " Pending (will sync in background)");
+  }
+
   // Initial acquisition and first history record
   updateTimeService();
   readSensors();
