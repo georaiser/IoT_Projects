@@ -172,6 +172,42 @@ $$\rho_a = 2 \pi \, a \, \frac{\Delta V_{MN}}{I}, \qquad I = \frac{\Delta V_{\te
 - **Inversión Geofísica 2D (`RES2DINV` / `ResIPy` / `pyGIMLi`):**
   El servidor web del ESP32 exporta directamente las mediciones $(x_{\text{centro}}, a, \rho_a)$ en el formato estándar `.dat` de **`RES2DINV`** (código de arreglo `1` = Wenner) para generar la **Pseudosección de Resistividad Aparente** y el **Modelo Invertido de Resistividad Real 2D** (también compatible con software libre científico `ResIPy` y `pyGIMLi` en Python).
 
+#### 🧪 Modelo Físico Análogo en Terrario / Sandbox (Laboratorio de Mesa ERT)
+Para validar el resistivímetro antes de salir a terreno, se utiliza el montaje canónico de modelado físico análogo (*sandbox modeling*):
+- **Recipiente:** Caja plástica organizadora o terrario de vidrio/acrílico de $40\text{--}60\text{ cm}$ de largo $\times 20\text{--}25\text{ cm}$ de ancho $\times 15\text{ cm}$ de profundidad.
+- **Matriz de fondo:** Arena fina humedecida uniformemente con agua ligeramente mineralizada para establecer una resistividad de fondo homogénea ($\rho_{\text{matriz}} \approx 30\text{--}80\ \Omega\cdot\text{m}$).
+- **Electrodos de superficie:** 16 a 24 clavos delgados de acero inoxidable clavados en línea en la arena, con separación básica $a = 2.0\text{ cm}$ o $2.5\text{ cm}$ (secuencia multi-nivel $n = 1, 2, 3, 4, 5$).
+- **Anomalías enterradas controladas:**
+  1. *Anomalía Resistiva ($\rho \gg \rho_{\text{matriz}}$):* Bloque de madera seca, tubo de PVC cerrado o roca ígnea densa (simula cavidades, fallas secas o túneles).
+  2. *Anomalía Conductora ($\rho \ll \rho_{\text{matriz}}$):* Esponja saturada con salmuera concentrada o barra metálica (simula acuífero salino o cuerpo mineralizado de sulfuros).
+- **Resultado:** La pseudosección generada por el ESP32 se invierte en `RES2DINV` / `pyGIMLi`, reconstruyendo la forma, posición horizontal $x$ y profundidad $z$ de las anomalías enterradas.
+
+---
+
+### 🌐 Métodos Electromagnéticos Pasivos: Magnetotelúrica (MT) y Audio-MT (AMT)
+
+La instrumentación de campo magnético y potencial eléctrico del monorepo se conecta directamente con los métodos electromagnéticos pasivos profundos:
+
+#### 1. Fundamento Físico (Ley de Inducción de Faraday)
+$$\nabla \times \vec{E} = -\frac{\partial \vec{B}}{\partial t}$$
+Las variaciones temporales naturales del campo magnético terrestre $\vec{B}(t)$ inducen corrientes eléctricas en el subsuelo (corrientes telúricas $\vec{E}(t)$). Midiendo simultáneamente ambas variables ortogonales ($E_x, H_y$), se calcula el tensor de impedancia $Z_{xy}(\omega) = E_x / H_y$ y la resistividad aparente:
+$$\rho_a(\omega) = \frac{1}{\mu_0 \omega} |Z_{xy}(\omega)|^2$$
+
+#### 2. Fuentes Naturales y Espectro de Frecuencias
+- **Magnetotelúrica (MT, $f < 1\text{ Hz}$, períodos de $1\text{ s}$ a $1000\text{ s}$):**
+  - *Fuente:* Interacción del viento solar con la magnetosfera y tormentas geomagnéticas (las mismas variaciones que detecta el magnetómetro triaxial digital).
+  - *Profundidad:* Exploración cortical y mantélica profunda ($1\text{ km}$ hasta $> 50\text{ km}$).
+- **Audio-Magnetotelúrica (AMT, $f = 1\text{ Hz}$ a $10\text{ kHz}$):**
+  - *Fuente:* Actividad global de rayos y tormentas eléctricas atrapadas en la cavidad guía de onda Tierra-Ionosfera (*Resonancias de Schumann* a $7.8\text{ Hz}$, $14\text{ Hz}$, etc.).
+  - *Profundidad:* Hidrogeología y prospección minera somera ($50\text{ m}$ a $1000\text{ m}$).
+
+#### 3. Diferencia de Escala Experimental: ¿Por qué ERT sí funciona en terrario y MT no?
+La profundidad de penetración de una onda electromagnética está regida por la **profundidad pelicular (*skin depth* $\delta$)**:
+$$\delta \approx 503 \sqrt{\frac{\rho}{f}} \quad [\text{metros}]$$
+- En un terrario de $50\text{ cm}$ ($0.5\text{ m}$) con $\rho = 50\ \Omega\cdot\text{m}$, para que la onda tenga una escala comparable al terrario se requeriría una frecuencia $f \approx 50\text{ MHz}$ (rango de microondas / Georradar GPR, no MT).
+- A las frecuencias naturales de MT ($0.01\text{--}100\text{ Hz}$), la longitud de onda atraviesa el terrario sin generar corrientes telúricas localmente confinadas, y el ruido de $50\text{ Hz}$ de la red eléctrica residencial saturaría la señal.
+- **Conclusión de laboratorio:** ERT (fuente artificial de corriente inyectada por electrodos) es el método perfecto para escala reducida de mesa / terrario, mientras que MT/AMT es estrictamente un método para campo abierto en terreno.
+
 ### Experimentos Posibles
 
 1. **Registrar un sismo real** y comparar timestamp y amplitud con el boletín del CSN Chile

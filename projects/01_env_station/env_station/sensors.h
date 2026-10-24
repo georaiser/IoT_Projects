@@ -92,7 +92,7 @@ void readSensors() {
   readings.mq135Raw     = sumRaw / 8;
   readings.mq135Voltage = ((sumMv / 8.0f) * 2.0f) / 1000.0f;
 
-  float pct = (readings.mq135Voltage - 0.27f) / (1.50f - 0.27f) * 100.0f;
+  float pct = (readings.mq135Voltage - 0.22f) / (1.50f - 0.22f) * 100.0f;
   if (pct < 0.0f)   pct = 0.0f;
   if (pct > 100.0f) pct = 100.0f;
   readings.airQualityPct = pct;

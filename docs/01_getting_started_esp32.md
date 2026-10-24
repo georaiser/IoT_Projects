@@ -799,4 +799,14 @@ En los documentos previos algunos componentes tenían un destino fijo. Para apre
 
 ---
 
-> **v1.3 (21-Oct-2026)** — Estación ambiental + `MQ-135` (divisor 10k/10k) + carrusel OLED en letra grande (`env_station`) validados; agregado mapa de coordenadas para `ESP32-C3 Super Mini` en mini protoboard (400 pts), Tomografía ERT 2D (`RES2DINV`) y Laboratorio de Física Moderna y Teledetección (`Constante de Planck h`, `NDVI`, `Rayos Cósmicos`).
+### 12.1 Hallazgo Experimental de Laboratorio: Sesgo Térmico del MQ-135 y Mejoras Digitales
+En pruebas empíricas de laboratorio en la mini protoboard (400 puntos) con el `ESP32-C3 Super Mini`:
+- **Sesgo Térmico del MQ-135:** El calentador interno de 5V ($0.75\text{ W}$, $\approx 150\text{ mA}$) del MQ-135 elevó la lectura del sensor de temperatura contiguo (AHT20) en **$+0.7^\circ\text{C}$** ($21.6^\circ\text{C}$ con sensor encendido vs $20.9^\circ\text{C}$ al extraerlo).
+- **Solución mecánica inmediata:** Conectar el MQ-135 mediante cables jumper hembra-macho separado unos centímetros de la protoboard para disipar el calor al aire libre.
+- **Mejoras de hardware recomendadas (Sensores MOX Digitales I2C en frío a 3.3V):**
+  1. **`ENS160 + AHT21` (ScioSense):** Reemplaza tanto al AHT20 como al MQ-135 en una sola placa minúscula ($1.2\times 1.2\text{ cm}$). Entrega AQI (1..5 UBA), TVOC ($0\text{--}65.000\text{ ppb}$), eCO2 ($400\text{--}65.000\text{ ppm}$), temperatura y humedad con autocompensación digital integrada por I2C (`0x53` y `0x38`). Cero calor y libera el pin analógico `GPIO 0`.
+  2. **`SGP40` (Sensirion Suiza):** Sensor MEMS de TVOC (Índice VOC 0..500) por I2C (`0x59`), ultra bajo consumo ($2.6\text{ mA}$) y calibrado de fábrica.
+
+---
+
+> **v1.4 (23-Oct-2026)** — Estación ambiental v1.2 con `ArduinoOTA` por Wi-Fi, validación metrológica DMC Quinta Normal ($957.0\text{ hPa}$ vs $957.8\text{ hPa}$, error $<0.08\%$), cuantificación empírica del sesgo térmico del MQ-135 ($+0.7^\circ\text{C}$) y hoja de ruta de actualización digital a `ENS160+AHT21` y `SGP40`.

@@ -116,11 +116,45 @@ pio device monitor -b 115200
 
 ---
 
-## 🔬 Metrological Validation Summary
+## 🔬 Metrological Validation & Thermal Characterization
 
-Validated against the official Chilean Meteorological Directorate (DMC) **Quinta Normal Station (`330020`, Santiago)**:
-- **Barometric Pressure (`BMP280`):** Tracked diurnal and frontal pressure variations (`947.3 hPa` to `955.3 hPa`) with a constant altitude offset of $-0.6\text{ to }-2.0\text{ hPa}$ ($\sim 15\text{ m}$ elevation difference).
-- **Thermal Isolation:** Placing the `OLED` module (`Filas 11–8`) between `AHT20` (`Filas 20–17`) and `MQ-135` (`Filas 5–2`, dome facing outward) prevents the `MQ-135` $5\text{ V}$ internal heater from adding $+1.0\text{ }^\circ\text{C}$ radiative bias to ambient temperature readings (`AHT20 = 21.5 °C`, `BMP280 = 21.5 °C`).
+Validated against the official Chilean Meteorological Directorate (DMC) and local airport / METAR station data:
+- **Barometric Pressure (`BMP280`):** 
+  - Measured on-device: **`957.0 hPa`**
+  - Official Weather Station QFE (surface level): **`957.8 hPa`**
+  - Pressure delta: **$\Delta P = 0.8\text{ hPa}$** (error $< 0.08\%$, corresponding to $\approx 6\text{–}7\text{ m}$ elevation difference between station and bedroom).
+- **Empirical MQ-135 Thermal Cross-Talk Characterization:**
+  - Experimental testing conducted on a 400-point mini breadboard to measure the thermal bias introduced by the `MQ-135` $5\text{ V}$ heating element ($0.75\text{ W}$, $\approx 150\text{ mA}$):
+    - **Equilibrium with `MQ-135` running:** **`21.6 °C`**
+    - **Transient peak during physical extraction:** **`22.3 °C`** (thermal conduction from human hand)
+    - **Equilibrium after `MQ-135` removal (cold baseline):** **`20.9 °C`**
+    - **Net Measured Thermal Bias:** **$\Delta T = +0.7\text{ }^\circ\text{C}$**
+  - **Mitigation:** Extending the `MQ-135` off-board using 4 DuPont jumper wires (female-to-male) prevents radiative and conductive heating of the `AHT20`/`BMP280` sensors, or upgrading to digital cold MEMS sensors (see below).
+
+---
+
+## 🌟 Recommended Hardware Upgrades: Digital MOX Sensors
+
+To eliminate the $0.75\text{ W}$ heating dissipation, save power, and obtain research-grade air quality metrics, two pin-compatible digital I2C alternatives are supported for station evolution:
+
+### 1. `ENS160 + AHT21` Dual Combo (Recommended All-in-One)
+- **Chips:** ScioSense `ENS160` (Multi-gas MOX) + Asair `AHT21` (High-precision Temp & RH).
+- **Bus & Interface:** Pure **I2C at $3.3\text{ V}$** (`0x53` for `ENS160`, `0x38` for `AHT21`).
+- **Power & Temperature:** Cold operation ($< 30\text{ mA}$ active, zero breadboard heating).
+- **Metrics Provided:**
+  - **Air Quality Index (AQI):** Standard 1 to 5 rating (German Federal Environmental Agency UBA).
+  - **$\text{TVOC}$:** Total Volatile Organic Compounds ($0\text{ to }65,000\text{ ppb}$).
+  - **$\text{eCO}_2$:** Equivalent Carbon Dioxide ($400\text{ to }65,000\text{ ppm}$).
+  - **Temperature & Humidity:** $\pm 0.3\text{ }^\circ\text{C}$ and $\pm 2\%\text{ RH}$.
+- **Key Advantage:** Replaces **both** the `AHT20` and `MQ-135` in a single tiny $1.2\times 1.2\text{ cm}$ footprint, completely freeing the analog `GPIO 0` and removing the $10\text{ k}\Omega / 10\text{ k}\Omega$ voltage divider.
+
+### 2. `SGP40` (Sensirion Swiss Precision TVOC)
+- **Chip:** Sensirion `SGP40` multipixel MOX sensor.
+- **Bus & Interface:** Pure **I2C at $3.3\text{ V}$** (`0x59`).
+- **Power & Temperature:** Ultra-low power (**$2.6\text{ mA}$**, strictly cold).
+- **Metrics Provided:**
+  - **VOC Index (0 to 500):** Processed via Sensirion's VOC Index Algorithm, with automatic real-time compensation using ambient temperature and humidity from the onboard `AHT20`.
+- **Key Advantage:** Factory-calibrated with traceable gas mixtures, exceptional long-term baseline stability, and miniature breakout form factor.
 
 ---
 

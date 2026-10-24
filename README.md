@@ -46,12 +46,13 @@ D:\00_IoT_Projects\
 
 | ID | Project | Target MCU | Core Sensors / Hardware | Status |
 |:--:|---|---|---|---|
-| **01** | **Environmental & Air Quality Station** (`projects/01_env_station`) | `ESP32 DevKit 30P` / `ESP32-C3 Super Mini` | `AHT20` (Temp/RH), `BMP280` (Pressure), `MQ-135` (Air/Gas), `SSD1306 OLED`, Buzzer, NTP Clock | ✅ **Operational (v1.2)** (SOLID/KISS, REST API, Dynamic OLED & Web Charts, DMC Quinta Normal Calibrated) |
+| **01** | **Environmental & Air Quality Station** (`projects/01_env_station`) | `ESP32 DevKit 30P` / `ESP32-C3 Super Mini` | `AHT20` (Temp/RH), `BMP280` (Pressure), `MQ-135` (Air/Gas), `SSD1306 OLED`, Buzzer, NTP Clock | ✅ **Operational (v1.2)** (SOLID/KISS, REST API, Dynamic OLED & Web Charts, Metrological DMC/QFE Calibrated, $+0.7^\circ\text{C}$ Thermal Cross-Talk Characterized; Upgrade path: `ENS160+AHT21` / `SGP40`) |
 | **02** | **2D Electrical Resistivity Tomography (ERT) Mini-Meter** | `ESP32 DevKit 30P` | `ADS1115` (16-bit Differential ADC), Bipolar Injection (`D25`/`D26`), $1\text{ k}\Omega$ Shunt, 4 Wenner Electrodes | 🔜 Next (`RES2DINV` `.dat` / `ResIPy` / `pyGIMLi` export) |
 | **03** | **Modern Physics Lab: Planck's Constant ($h$)** | `ESP32 DevKit 30P` | 8-bit `DAC` (`D25`), `ADS1115` (16-bit), Multi-wavelength LEDs ($470\text{–}940\text{ nm}$) | 📋 Planned ($e V_0 = h\nu - \phi$ linear regression) |
 | **04** | **Spectral Remote Sensing: Proximal Active `NDVI` Sensor** | `ESP32 DevKit 30P` / `C3` | Red LED ($625\text{ nm}$), NIR Emitter/Photodiode ($940\text{ nm}$, `HW-201`), `ADS1115`, `BH1750` | 📋 Planned ($\text{NDVI} = \frac{\rho_{\text{NIR}} - \rho_{\text{Red}}}{\rho_{\text{NIR}} + \rho_{\text{Red}}}$) |
 | **05** | **Special Relativity & Cosmic Ray Muon Detector** | `XIAO ESP32-S3 Sense` | `OV2640` CMOS Dark-Frame Detector (or `BPW34` PIN Photodiodes) | 📋 Planned (Time dilation $\tau = \gamma\tau_0$ & Poisson statistics) |
 | **06** | **3-Axis Digital Seismograph & FFT Waterfall (`STA/LTA`)** | `ESP32-S3 N16R8` | `ADXL345` (SPI, $800\text{ Hz}$), `MPU6050` (Tilt), `MicroSD` Datalogger | 📋 Planned |
+| **07** | **Interactive Voice Telemetry Agent & Desktop Robot** (`projects/07_voice_assistant`) | `ESP32-S3 N16R8` | `INMP441` (I2S Mic), `MAX98357A` (3W Amp), `SG90` Servos, `RCWL-0516` | 📋 Planned (`ESP-SR` KWS + Local TTS + DeepSeek LLM) |
 
 ---
 
