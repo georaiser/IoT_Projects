@@ -161,16 +161,139 @@ Rango de análisis: **0.5 Hz a 400 Hz**
 - Vibraciones de tráfico: 10–30 Hz
 - Resonancias de estructuras: 5–15 Hz
 
-### Mini-Resistivímetro Geofísico (Tomografía 2D ERT / SEV — Arreglo de Wenner + `RES2DINV`)
+### Mini-Resistivímetro Geofísico (Tomografía 2D ERT / SEV — Multi-Arreglo + `RES2DINV`)
 
-Usando dos pines de inyección con inversión de polaridad (`D25` y `D26` en el DevKit 30P), una resistencia *shunt* de precisión ($R_s = 1\text{ k}\Omega$) y el conversor **`ADS1115` (16-bit en modo diferencial)**, la estación funciona como un resistivímetro tetrapolar ($A\text{-}M\text{-}N\text{-}B$):
+Usando dos pines de inyección con inversión de polaridad (`D25` y `D26` en el DevKit 30P), una resistencia *shunt* de precisión ($R_s = 1\text{ k}\Omega$) y el conversor **`ADS1115` (16-bit en modo diferencial)**, la estación funciona como un resistivímetro tetrapolar configurable para cualquier arreglo estándar de 4 electrodos ($A\text{-}M\text{-}N\text{-}B$):
 
-$$\rho_a = 2 \pi \, a \, \frac{\Delta V_{MN}}{I}, \qquad I = \frac{\Delta V_{\text{shunt}}}{R_s}$$
+$$\rho_a = K \cdot \frac{\Delta V_{MN}}{I}, \qquad I = \frac{\Delta V_{\text{shunt}}}{R_s}$$
 
-- **Electrodos externos ($A, B$):** Inyectan pulsos bipolares cortos ($+3.3\text{ V} / -3.3\text{ V}$ durante $20\text{ ms}$) para anular el potencial espontáneo ($\text{SP}$) y evitar la polarización electrolítica del suelo.
-- **Electrodos internos ($M, N$ a separación $a$):** El canal diferencial `A0-A1` del `ADS1115` mide $\Delta V_{MN}$ con alta impedancia de entrada, mientras `A2-A3` mide la caída en $R_s$ para obtener la corriente real $I$.
-- **Inversión Geofísica 2D (`RES2DINV` / `ResIPy` / `pyGIMLi`):**
-  El servidor web del ESP32 exporta directamente las mediciones $(x_{\text{centro}}, a, \rho_a)$ en el formato estándar `.dat` de **`RES2DINV`** (código de arreglo `1` = Wenner) para generar la **Pseudosección de Resistividad Aparente** y el **Modelo Invertido de Resistividad Real 2D** (también compatible con software libre científico `ResIPy` y `pyGIMLi` en Python).
+Donde el **factor geométrico $K$** general en un semi-espacio homogéneo e isótropo se deduce a partir de la superposición de potenciales puntuales de inyección ($A$) y retorno ($B$):
+
+$$K = \frac{2\pi}{\left(\frac{1}{r_{AM}} - \frac{1}{r_{BM}} - \frac{1}{r_{AN}} + \frac{1}{r_{BN}}\right)}$$
+
+- **Electrodos de corriente ($A, B$):** Inyectan pulsos bipolares conmutados ($+3.3\text{ V} \to -3.3\text{ V} \to \text{OFF}$ durante $20\text{--}50\text{ ms}$) para:
+  1. Anular el **Potencial Espontáneo ($SP$)** y ruidos telúricos continuos ($V_{\text{medido}} = \frac{V^+ - V^-}{2}$).
+  2. Evitar la **polarización electrolítica** y pasivación química de los electrodos en contacto con el suelo húmedo.
+- **Electrodos de potencial ($M, N$):** El canal diferencial `A0-A1` del `ADS1115` mide $\Delta V_{MN}$ con alta impedancia ($> 6\text{ M}\Omega$) y ganancia programable (PGA hasta $\pm 0.256\text{ V}$ con resolución de $7.8125\ \mu\text{V}/\text{LSB}$), mientras `A2-A3` mide la caída en $R_s$ para calcular la corriente real inyectada $I$.
+
+---
+
+#### 📐 Configuraciones de Electrodos Soportadas
+
+El mismo hardware de adquisición adquiere datos para cualquiera de las siguientes geometrías de prospección:
+
+```text
+1. Wenner-Alpha (Máxima SNR, capas horizontales)
+   A ────── a ────── M ────── a ────── N ────── a ────── B
+  (I+)              (V+)              (V-)              (I-)
+
+2. Dipolo-Dipolo (Máxima resolución horizontal, anomalías verticales)
+   A ─── a ─── B ··········· (n · a) ··········· M ─── a ─── N
+  (I+)        (I-)                              (V+)        (V-)
+
+3. Schlumberger (Sondeo Eléctrico Vertical SEV 1D)
+   A ◀────────── s ──────────▶ M ── b ── N ◀────────── s ──────────▶ B
+  (I+)                        (V+)     (V-)                         (I-)
+
+4. Wenner-Schlumberger (Híbrido 2D multielectrodo)
+   A ──── (n·a) ──── M ──── a ──── N ──── (n·a) ──── B
+  (I+)              (V+)          (V-)              (I-)
+
+5. Polo-Dipolo (B remoto al "infinito")
+   A ─── (n·a) ─── M ─── a ─── N          ········· [B al infinito]
+  (I+)            (V+)        (V-)                  (I-)
+```
+
+| Configuración | Factor Geométrico $K$ | Profundidad Mediana ($z_e$) | Código `RES2DINV` | Ventaja Principal |
+|---|:---:|:---:|:---:|---|
+| **Wenner ($\alpha$)** | $2\pi a$ | $z_e \approx 0.519 a \approx \frac{L}{6}$ | `1` | Máxima relación señal/ruido; ideal para bajo voltaje (3.3V/5V) y estratificación horizontal |
+| **Dipolo-Dipolo** | $\pi n(n+1)(n+2)a$ | $z_e \approx 0.416 \sqrt{n(n+1)} a$ | `3` | Mejor resolución de bordes verticales (fallas, cavidades, tuberías, raíces) |
+| **Schlumberger** | $\frac{\pi (s^2 - b^2/4)}{b}$ | Depende de $s = AB/2$ | `—` (SEV) / `7` | Solo se desplazan los electrodos exteriores $A$ y $B$ para profundizar |
+| **Wenner-Schlumberger** | $\pi n(n+1)a$ | $z_e \approx 0.52 \sqrt{n(n+1)} a$ | `7` | Equilibrio óptimo entre sensibilidad horizontal y vertical en tomografía 2D |
+| **Polo-Dipolo** | $2\pi n(n+1)a$ | $z_e \approx 0.65 \sqrt{n(n+1)} a$ | `6` | Mayor penetración relativa con menos longitud de cable activo |
+
+---
+
+#### ⚡ Física de la Profundidad de Investigación vs. Voltaje de Inyección
+
+Un principio medular de la geofísica eléctrica es:
+
+> **La profundidad de investigación ($z_e$) depende de la GEOMETRÍA del tendido de electrodos, mientras que el VOLTAJE determina la relación SEÑAL / RUIDO (el límite de separación máxima antes de perder la señal en el ruido ambiental).**
+
+1. **Dependencia geométrica ($z_e \approx 0.52 a$ en Wenner):**  
+   Al separar los electrodos $a$, las líneas de corriente penetran más hondo en el semiespacio. Para alcanzar $1.0\text{ m}$ de profundidad, se requiere un espaciamiento $a \approx 2.0\text{ m}$ (línea total $L = 3a = 6.0\text{ m}$).
+2. **Límite del voltaje (3.3V / 5V vs. 200V comerciales):**  
+   Al aumentar $a$, la señal de potencial decae con $\frac{\rho I}{2\pi a}$ y la corriente está limitada por la resistencia de contacto de las picas ($I = \frac{V_{\text{inj}}}{R_{\text{contacto}} + R_s}$).
+   * **Piso de ruido ambiental:** En campo típico existe un ruido de fondo de $\sim 0.5\text{--}1.5\text{ mV}$ (telúrico, electroquímico y 50 Hz).
+   * **Con 3.3V / 5V en suelo húmedo / jardín ($\rho \approx 60\ \Omega\cdot\text{m}$, $R_{\text{contacto}} \approx 1.5\text{ k}\Omega$):**  
+     $I \approx 1.5\text{--}2.0\text{ mA}$. Con $a = 2.0\text{ m}$ ($z_e \approx 1.0\text{ m}$), la señal es $\Delta V_{MN} \approx 8\text{ mV}$, plenamente separable del ruido gracias al PGA de 16 bits del ADS1115.  
+     **Alcance práctico confiable: hasta $1.0\text{--}1.5\text{ metros}$ de profundidad.**
+   * **En terrario o sandbox de laboratorio ($a = 2.0\text{--}5.0\text{ cm}$):**  
+     $\Delta V_{MN} \approx 100\text{--}300\text{ mV}$. La señal es gigantesca y permite resoluciones milimétricas a $1\text{--}3\text{ cm}$ de profundidad.
+   * **¿Por qué los equipos industriales usan 200V–400V?**  
+     Para forzar $200\text{--}500\text{ mA}$ en suelos áridos o rocosos y alcanzar profundidades de $10\text{--}50\text{ m}$ con tendidos de cientos de metros. Para laboratorio, agricultura de precisión y geotecnia somera, **3.3V / 5V es completamente funcional y 100% seguro contra descargas**.
+
+---
+
+#### 💾 Exportación Estándar a Software Geofísico (`RES2DINV`, `ResIPy`, `pyGIMLi`)
+
+El servidor web del ESP32 genera en memoria y exporta directamente el archivo estándar `.dat` de **`RES2DINV`** (compatible de forma nativa con `ResIPy` y `pyGIMLi` en Python):
+
+```text
+Tomografia ERT 2D - ESP32 ADS1115
+1.0                          # Espaciamiento unitario de electrodos (m)
+1                            # Código de arreglo (1=Wenner, 3=Dipolo-Dipolo, 7=Wenner-Schlumberger)
+15                           # Número de puntos de medición
+1                            # Tipo de coordenadas (1 = x centro y separacion a)
+0                            # Indicador de voltaje IP (0 = solo resistividad aparente)
+# x_centro   separacion_a   resistividad_aparente(ohm-m)
+1.50         1.00           58.42
+2.50         1.00           61.15
+3.50         1.00           59.80
+...
+0                            # Terminador de archivo
+```
+
+#### 🔬 Protocolo Experimental: Comparación Cruzada de Arreglos (Benchmark Multi-Arreglo)
+
+Uno de los objetivos científicos centrales del Proyecto 02 es **comparar directamente los 5 arreglos sobre el mismo medio o modelo análogo** (terrario/sandbox o perfil de terreno), contrastando su sensibilidad, relación señal/ruido y resolución:
+
+```text
+                                  LÍNEA DE MEDIDA (16-24 ELECTRODOS)
+       e1    e2    e3    e4    e5    e6    e7    e8    e9    e10   e11   e12   ...   e24
+       ▼     ▼     ▼     ▼     ▼     ▼     ▼     ▼     ▼     ▼     ▼     ▼           ▼
+═══════╧═════╧═════╧═════╧═════╧═════╧═════╧═════╧═════╧═════╧═════╧═════╧═══════════╧══════ (Superficie)
+       │                                                         │
+       │                   ┌───────────────────────────┐         │
+       │                   │   ANOMALÍA RESISTIVA      │         │
+       │                   │  (Tubo PVC / Bloque seco) │         │
+       │                   └───────────────────────────┘         │
+       │                                                         │
+       │          ┌───────────────────────────┐                  │
+       │          │   ANOMALÍA CONDUCTORA     │                  │
+       │          │ (Esponja salina / Metal)  │                  │
+       │          └───────────────────────────┘                  │
+       ▼                                                         ▼
+```
+
+##### Matriz Comparativa de Comportamiento Geofísico
+
+| Arreglo | Relación Señal/Ruido (SNR) | Sensibilidad a Capas Horizontales | Resolución de Bordes Verticales | Sensibilidad al Buzamiento (Inclinación) | Rol en el Laboratorio Comparativo |
+|---|:---:|:---:|:---:|:---:|---|
+| **1. Wenner ($\alpha$)** | ⭐⭐⭐⭐⭐ (Máxima) | ⭐⭐⭐⭐⭐ (Excelente) | ⭐⭐ (Pobre, difumina) | Simétrica | **Línea base de alta estabilidad:** Mapea el nivel freático y estratos planos con señal limpia aun a 3.3V. |
+| **2. Dipolo-Dipolo** | ⭐⭐ (Baja en $n>3$) | ⭐⭐ (Pobre) | ⭐⭐⭐⭐⭐ (Excelente) | Simétrica | **Detector de anomalías localizadas:** Resuelve con máxima nitidez tubos, cavidades, fallas verticales y raíces. |
+| **3. Schlumberger** | ⭐⭐⭐⭐ (Alta) | ⭐⭐⭐⭐ (Muy buena) | ⭐⭐⭐ (Intermedia) | Simétrica | **Calibración 1D (SEV):** Curva bilogarítmica clásica ($\rho_a$ vs. $AB/2$) en el centro del perfil sin mover electrodos $M, N$. |
+| **4. Wenner-Schlumb.** | ⭐⭐⭐⭐ (Alta) | ⭐⭐⭐⭐ (Muy buena) | ⭐⭐⭐⭐ (Muy buena) | Simétrica | **Compromiso óptimo 2D:** Cobertura densa con excelente balance entre profundidad y resolución lateral. |
+| **5. Polo-Dipolo** | ⭐⭐⭐ (Intermedia) | ⭐⭐⭐ (Intermedia) | ⭐⭐⭐⭐ (Buena) | ⭐⭐⭐⭐⭐ (Máxima) | **Detector de contactos inclinados:** Arreglo asimétrico ($B$ al infinito); detecta buzamiento midiendo *forward* y *reverse*. |
+
+##### Metodología de Validación Experimental:
+1. **Adquisición sobre el mismo modelo análogo:** Se clava una línea fija de electrodos en el sandbox con una anomalía resistiva (madera/PVC) y una conductora (esponja salina).
+2. **Barrido secuencial en el firmware:** El ESP32 ejecuta sucesivamente los patrones de conmutación para Wenner, Dipolo-Dipolo, Schlumberger, Wenner-Schlumberger y Polo-Dipolo.
+3. **Inversión y Contraste 2D:** Se descargan los archivos `.dat` (`wenner.dat`, `dipole.dat`, etc.) y se procesan en **`ResIPy`** o **`pyGIMLi`**:
+   - Se compara la función de sensibilidad Fréchet $F(x,z)$ de cada arreglo.
+   - Se evalúa cuantitativamente el error cuadrático medio (RMS %) de inversión y la fidelidad geométrica de las anomalías recuperadas.
+
+---
 
 #### 🧪 Modelo Físico Análogo en Terrario / Sandbox (Laboratorio de Mesa ERT)
 Para validar el resistivímetro antes de salir a terreno, se utiliza el montaje canónico de modelado físico análogo (*sandbox modeling*):

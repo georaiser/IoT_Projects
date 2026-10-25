@@ -48,7 +48,7 @@ D:\00_IoT_Projects\
 | ID | Project | Target MCU | Core Sensors / Hardware | Status |
 |:--:|---|---|---|---|
 | **01** | **Environmental & Air Quality Station** (`projects/01_env_station`) | `ESP32 DevKit 30P` / `ESP32-C3 Super Mini` | `AHT20` (Temp/RH), `BMP280` (Pressure), `MQ-135` (Air/Gas), `SSD1306 OLED`, Buzzer, NTP Clock | ✅ **Operational (v1.2)** (SOLID/KISS, REST API, Dynamic OLED & Web Charts, Metrological DMC/QFE Calibrated, $+0.7^\circ\text{C}$ Thermal Cross-Talk Characterized; Upgrade path: `ENS160+AHT21` / `SGP40`) |
-| **02** | **2D Electrical Resistivity Tomography (ERT) Mini-Meter** | `ESP32 DevKit 30P` | `ADS1115` (16-bit Differential ADC), Bipolar Injection (`D25`/`D26`), $1\text{ k}\Omega$ Shunt, 4 Wenner Electrodes | 🔜 Next (`RES2DINV` `.dat` / `ResIPy` / `pyGIMLi` export) |
+| **02** | **2D Electrical Resistivity Tomography (ERT) & SEV Mini-Meter** (`projects/02_ert_meter`) | `ESP32 DevKit 30P` / `C3` | `ADS1115` (16-bit Differential ADC), Bipolar Injection (`D25`/`D26`), $1\text{ k}\Omega$ Shunt, 4 Electrodes | 🚀 **In Active Development** (5-Array Comparative Benchmark: Wenner, Dipole-Dipole, Schlumberger 1D, Wenner-Schlumberger, Pole-Dipole; depth $z_e \approx 0.52a$; `RES2DINV` `.dat` / `ResIPy` / `pyGIMLi` export) |
 | **03** | **Modern Physics Lab: Planck's Constant ($h$)** | `ESP32 DevKit 30P` | 8-bit `DAC` (`D25`), `ADS1115` (16-bit), Multi-wavelength LEDs ($470\text{–}940\text{ nm}$) | 📋 Planned ($e V_0 = h\nu - \phi$ linear regression) |
 | **04** | **Spectral Remote Sensing: Proximal Active `NDVI` Sensor** | `ESP32 DevKit 30P` / `C3` | Red LED ($625\text{ nm}$), NIR Emitter/Photodiode ($940\text{ nm}$, `HW-201`), `ADS1115`, `BH1750` | 📋 Planned ($\text{NDVI} = \frac{\rho_{\text{NIR}} - \rho_{\text{Red}}}{\rho_{\text{NIR}} + \rho_{\text{Red}}}$) |
 | **05** | **Special Relativity & Cosmic Ray Muon Detector** | `XIAO ESP32-S3 Sense` | `OV2640` CMOS Dark-Frame Detector (or `BPW34` PIN Photodiodes) | 📋 Planned (Time dilation $\tau = \gamma\tau_0$ & Poisson statistics) |
@@ -90,3 +90,23 @@ Detailed architecture and workflows are documented in [`docs/03_edge_ai_tinyml_r
    - **`ESP32 Dev Module`** (for DevKit 30P), or
    - **`ESP32C3 Dev Module`** with **`USB CDC On Boot: Enabled`** (for ESP32-C3 Super Mini).
 3. Click **Upload (`→`)** and open Serial Monitor at **`115200 baud`**.
+
+---
+
+## ⚡ Project 02 Overview — 2D ERT & SEV Resistivity Meter (`02_ert_meter`)
+
+A low-cost, high-precision geophysical resistivity meter using **ESP32 DevKit 30P** (or **ESP32-C3**) and the **ADS1115 16-bit differential ADC** for shallow subsurface imaging and sandbox analog modeling:
+
+- **Mathematical Core:** $\rho_a = K \cdot \frac{\Delta V_{MN}}{I}$, where $I = \frac{\Delta V_{\text{shunt}}}{R_s}$ with $R_s = 1\text{ k}\Omega$.
+- **Bipolar Injection (`D25`/`D26`):** Reverses $+3.3\text{ V} \to -3.3\text{ V}$ to eliminate natural Self-Potential ($SP$) and cancel electrochemical polarization.
+- **5-Array Comparative Benchmark (Multi-Array Suite):**
+  - **Wenner ($\alpha$):** $K = 2\pi a$, $z_e \approx 0.52 a$ (highest SNR, baseline for horizontal layering and water table).
+  - **Dipole-Dipole:** $K = \pi n(n+1)(n+2)a$ (maximum horizontal resolution for vertical dykes, faults, cavities, and buried pipes).
+  - **Schlumberger 1D:** $K = \frac{\pi (s^2 - b^2/4)}{b}$ (classic Vertical Electrical Sounding calibration without moving potential electrodes $M, N$).
+  - **Wenner-Schlumberger:** $K = \pi n(n+1)a$ (hybrid balance for 2D multi-electrode tomography).
+  - **Pole-Dipole:** $K = 2\pi n(n+1)a$ (remote $B$ at infinity; maximum depth penetration and sensitive to dipping structures).
+- **Physical Depth of Investigation:**
+  - Governed geometrically by array aperture ($z_e \approx 0.52a$ in Wenner).
+  - At $3.3\text{--}5\text{ V}$ injection, signal-to-noise ratio supports up to $1.0\text{--}1.5\text{ m}$ depth in typical damp garden/agricultural soils ($a \approx 2\text{--}3\text{ m}$), and millimeter-scale profiling in laboratory sandbox models ($a = 2\text{--}5\text{ cm}$).
+- **Standard Geophysical Export:** Direct browser download of `.dat` files for **`RES2DINV`** (standard array codes `1`, `3`, `6`, `7`), `.csv` datasets for Python **`pyGIMLi`** and **`ResIPy`**.
+- **Field & IoT Interface:** Onboard SSD1306 OLED for instant field readouts, embedded Web Dashboard with real-time 2D pseudosection preview and multi-array comparison mode.
