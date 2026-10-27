@@ -37,50 +37,65 @@ void initDisplay() {
 
 // Render dynamic graph with dynamic Min-Max scaling for OLED
 void renderOledGraph(const char* label, float minV, float maxV, const char* unit, bool isTemp) {
-  // 1. Top header (y = 0..14)
+  if (historyCount < 2) {
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.printf("%s 48H", label);
+    display.setCursor(15, 28);
+    display.print("Collecting data...");
+    return;
+  }
+
+  uint16_t startIdx = (historyCount < MAX_HISTORY_RECORDS) ? 0 : historyHead;
+
+  // Auto-scan the actual buffer to determine the true Min and Max of the plotted data
+  float actualMin = 9999.0f;
+  float actualMax = -9999.0f;
+  for (uint16_t i = 0; i < historyCount; i++) {
+    uint16_t idx = (startIdx + i) % MAX_HISTORY_RECORDS;
+    float val = isTemp ? (historyBuffer[idx].tempX10 / 10.0f) : (historyBuffer[idx].humX10 / 10.0f);
+    if (val < actualMin) actualMin = val;
+    if (val > actualMax) actualMax = val;
+  }
+
+  float span = actualMax - actualMin;
+  if (span < 0.5f) span = 1.0f; // Prevent division by zero and provide minimum visible span
+
+  // 1. Top header (y = 0..14) with true dynamic Min and Max
   display.setTextSize(1);
   display.setCursor(0, 0);
   display.printf("%s 48H", label);
 
-  display.setCursor(70, 0);
-  display.printf("MX:%.1f", maxV);
+  display.setCursor(68, 0);
+  display.printf("MX:%.1f", actualMax);
 
-  display.setCursor(70, 8);
-  display.printf("MN:%.1f", minV);
+  display.setCursor(68, 8);
+  display.printf("MN:%.1f", actualMin);
 
   // 2. Graph plot region: x = 0..127, y = 18..51 (height = 33 px)
   display.drawLine(0, 16, 127, 16, SSD1306_WHITE); // Upper separator line
   display.drawLine(0, 52, 127, 52, SSD1306_WHITE); // Lower separator line
 
-  float span = maxV - minV;
-  if (span < 0.1f) span = 1.0f; // Prevent division by zero
+  int prevX = -1;
+  int prevY = -1;
 
-  if (historyCount >= 2) {
-    uint16_t startIdx = (historyCount < MAX_HISTORY_RECORDS) ? 0 : historyHead;
-    int prevX = -1;
-    int prevY = -1;
+  for (uint16_t i = 0; i < historyCount; i++) {
+    uint16_t idx = (startIdx + i) % MAX_HISTORY_RECORDS;
+    float val = isTemp ? (historyBuffer[idx].tempX10 / 10.0f) : (historyBuffer[idx].humX10 / 10.0f);
 
-    for (uint16_t i = 0; i < historyCount; i++) {
-      uint16_t idx = (startIdx + i) % MAX_HISTORY_RECORDS;
-      float val = isTemp ? (historyBuffer[idx].tempX10 / 10.0f) : (historyBuffer[idx].humX10 / 10.0f);
+    int x = (int)((i * 127.0f) / (historyCount - 1));
+    float norm = (val - actualMin) / span;
+    if (norm < 0.0f) norm = 0.0f;
+    if (norm > 1.0f) norm = 1.0f;
+    int y = 50 - (int)(norm * 32.0f); // 50 is bottom, 18 is top
 
-      int x = (int)((i * 127.0f) / (historyCount - 1));
-      float norm = (val - minV) / span;
-      if (norm < 0.0f) norm = 0.0f;
-      if (norm > 1.0f) norm = 1.0f;
-      int y = 50 - (int)(norm * 32.0f); // 50 is bottom, 18 is top
-
-      if (prevX >= 0) {
-        display.drawLine(prevX, prevY, x, y, SSD1306_WHITE);
-      } else {
-        display.drawPixel(x, y, SSD1306_WHITE);
-      }
-      prevX = x;
-      prevY = y;
+    if (prevX >= 0) {
+      display.drawLine(prevX, prevY, x, y, SSD1306_WHITE);
+    } else {
+      display.drawPixel(x, y, SSD1306_WHITE);
     }
-  } else {
-    display.setCursor(20, 30);
-    display.print("Collecting data...");
+    prevX = x;
+    prevY = y;
   }
 }
 
