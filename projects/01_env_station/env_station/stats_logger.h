@@ -49,7 +49,10 @@ struct StationStats {
 };
 
 // Compact 48-hour circular buffer entry (16 bytes per record * 576 = 9.2 KB RAM)
-#define MAX_HISTORY_RECORDS 576
+//En 1 hora 12 muestras
+//En 48 horas: 12×48=576 muestras
+//En 72 horas: 12×72=864 muestras
+#define MAX_HISTORY_RECORDS 864
 
 struct HistoryRecord {
   char     timeLabel[20]; // "YYYY-MM-DD HH:MM:SS"
