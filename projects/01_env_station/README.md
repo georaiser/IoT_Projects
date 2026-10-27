@@ -1,6 +1,6 @@
 # 🌱 Project 01: Multi-Sensor Environmental & Air Quality Station (`01_env_station`)
 
-A real-time IoT environmental telemetry and air quality monitoring station supporting both **ESP32 DevKit 30P** and **ESP32-C3 Super Mini**, featuring a large-text **SSD1306 OLED carousel**, an **embedded Wi-Fi web dashboard**, and **acoustic threshold alerts**.
+A real-time IoT environmental telemetry and air quality monitoring station supporting both **ESP32 DevKit 30P** and **ESP32-C3 Super Mini**, featuring a large-text **SSD1306 OLED carousel**, an **embedded Wi-Fi web dashboard with interactive tooltips**, **acoustic threshold alerts**, **non-volatile LittleFS storage (~40 days)**, and **automated PC data synchronization**.
 
 ---
 
@@ -9,23 +9,29 @@ A real-time IoT environmental telemetry and air quality monitoring station suppo
 - **Multi-Sensor Telemetry:**
   - **`AHT20` (`0x38` I2C):** Ambient temperature ($\pm 0.3\text{ }^\circ\text{C}$) and relative humidity ($\pm 2\%\text{ RH}$).
   - **`BMP280` (`0x77` / `0x76` I2C):** Barometric pressure ($\pm 1\text{ hPa}$, configured in `MODE_FORCED` to eliminate self-heating).
-  - **`MQ-135` (Analog `ADC1`):** Air quality / VOC / $\text{CO}_2$ / gas detection via a protective $10\text{ k}\Omega / 10\text{ k}\Omega$ voltage divider ($5\text{ V} \to 2.5\text{ V}$ max) and high-sensitivity `ADC_2_5db` attenuation.
+  - **`MQ-135` (Analog `ADC1`):** Air quality / VOC / $\text{CO}_2$ / gas detection via a protective $10\text{ k}\Omega / 10\text{ k}\Omega$ voltage divider ($5\text{ V} \to 2.5\text{ V}$ max) and high-sensitivity `ADC_2_5db` attenuation. (When disconnected, `GPIO 0` is grounded to eliminate floating antenna noise).
+- **Persistent Non-Volatile Flash Storage (`LittleFS`):**
+  - Continuous circular append to on-board flash memory (`/history.csv`, 512 KB partition = **~40 days of continuous recording** at 5-minute intervals).
+  - **Boot History Recovery:** On power-up or reboot, automatically restores past telemetry from flash into RAM so historical graphs survive power cycles without gaps.
+  - **Memory Life Monitoring:** Real-time computation of flash storage used, percentage, and days remaining with low-storage warning banners in Web UI and OLED (`MEM LOW!` alert when $\le 2$ days left).
 - **Large-Text OLED Carousel (`SSD1306 0.96"`, `0x3C` I2C):**
-  - Automatically rotates every $3\text{ s}$ across 5 high-contrast views including real-time charts:
+  - Automatically rotates every $3\text{ s}$ across 5 high-contrast views including auto-scaled real-time charts:
     1. **Slide 0:** Temperature (`T: XX.X C`) + Humidity (`H: XX.X %`)
     2. **Slide 1:** Atmospheric Pressure (`PRESSURE` / `XXXX.X hPa`)
     3. **Slide 2:** Air Quality Status (`AIR GOOD/FAIR/POOR!`) + Concentration (`XXXX ppm`)
-    4. **Slide 3:** **Dynamic Temperature Chart** (auto-scaled between 24h Min & Max with upper/lower bounds)
-    5. **Slide 4:** **Dynamic Humidity Chart** (auto-scaled between 24h Min & Max)
-    - **Bottom Status Bar:** Continuously displays live atomic clock (`HH:MM`) and IP address.
-- **Wireless Over-The-Air (OTA) Updates (`v1.2`):**
-  - Integrated `ArduinoOTA` listener: all future firmware builds can be uploaded over Wi-Fi without needing a USB cable or touching the board in the bedroom.
-- **Embedded Wi-Fi Web Server & REST API (`v1.2`):**
-  - Modular frontend template in `index_html.h` running in PROGMEM.
-  - Zero-flicker asynchronous `fetch()` polling every 2 seconds.
-  - Dynamic auto-scaling charts with a toggle to standard fixed metrological ranges.
-  - Endpoints: `GET /` (Dashboard), `GET /api/sensors` (JSON), `GET /api/history` (JSON points), `GET /api/history.csv` (24h CSV download).
-- **Acoustic Alert System (Passive Buzzer):**
+    4. **Slide 3:** **Dynamic 48H Temperature Chart** (auto-scaled dynamically from true buffer min/max with zero-span protection)
+    5. **Slide 4:** **Dynamic 48H Humidity Chart** (auto-scaled dynamically from true buffer min/max)
+    - **Bottom Status Bar:** Live NTP atomic clock (`HH:MM`), station IP, and flash alert (`MEM LOW!`).
+- **Wireless Over-The-Air (OTA) Updates (`v1.3`):**
+  - Integrated `ArduinoOTA` listener: firmware updates can be deployed directly over Wi-Fi (`env-station at 192.168.1.5`).
+- **Embedded Web Dashboard & Interactive Tooltips (`v1.3`):**
+  - Frontend template in `index_html.h` in PROGMEM with 2-second asynchronous `fetch()` polling.
+  - **Interactive HTML5 Canvas Hover Tooltip:** Vertical dashed guideline, target glow circle, and floating badge showing exact timestamp and measurement (`Time | Value Unit`) on both desktop (`mousemove`) and mobile touch (`touchmove`).
+  - **Expanded 48-Hour Buffer:** 576 data points at 5-minute sampling intervals.
+  - One-click toggle between Dynamic Zoom and Fixed Metrological Range.
+  - Endpoints: `GET /` (Dashboard), `GET /api/sensors` (JSON with storage info), `GET /api/history` (576-point JSON), `GET /api/history.csv` (Flash stream), `GET /api/history/clear?confirm=true` (Remote flash purge).
+- **Automated Python Synchronization Tool:**
+  - Standalone script (`scripts/sync_station_data.py`) with zero pip dependencies. Deduplicates historical records, updates `data/env_station_master.csv`, and optionally purges flash memory with `--purge` after successful verification.
 
 ---
 
@@ -118,18 +124,27 @@ pio device monitor -b 115200
 
 ## 🔬 Metrological Validation & Thermal Characterization
 
-Validated against the official Chilean Meteorological Directorate (DMC) and local airport / METAR station data:
-- **Barometric Pressure (`BMP280`):** 
-  - Measured on-device: **`957.0 hPa`**
-  - Official Weather Station QFE (surface level): **`957.8 hPa`**
-  - Pressure delta: **$\Delta P = 0.8\text{ hPa}$** (error $< 0.08\%$, corresponding to $\approx 6\text{–}7\text{ m}$ elevation difference between station and bedroom).
-- **Empirical MQ-135 Thermal Cross-Talk Characterization:**
-  - Experimental testing conducted on a 400-point mini breadboard to measure the thermal bias introduced by the `MQ-135` $5\text{ V}$ heating element ($0.75\text{ W}$, $\approx 150\text{ mA}$):
-    - **Equilibrium with `MQ-135` running:** **`21.6 °C`**
-    - **Transient peak during physical extraction:** **`22.3 °C`** (thermal conduction from human hand)
-    - **Equilibrium after `MQ-135` removal (cold baseline):** **`20.9 °C`**
-    - **Net Measured Thermal Bias:** **$\Delta T = +0.7\text{ }^\circ\text{C}$**
-  - **Mitigation:** Extending the `MQ-135` off-board using 4 DuPont jumper wires (female-to-male) prevents radiative and conductive heating of the `AHT20`/`BMP280` sensors, or upgrading to digital cold MEMS sensors (see below).
+Validated against the official Chilean Meteorological Directorate (DMC), physical thermodynamic laws, and empirical hardware experiments:
+
+### 1. Barometric Pressure (`BMP280`)
+- **Measured on-device:** **`957.0 hPa`**
+- **Official Weather Station QFE (surface level):** **`957.8 hPa`**
+- **Pressure delta:** **$\Delta P = 0.8\text{ hPa}$** (error $< 0.08\%$, corresponding to $\approx 6\text{–}7\text{ m}$ elevation difference between station and bedroom).
+
+### 2. Comprehensive Thermal Budget & Breadboard Self-Heating
+Experimental testing on hardware revealed two independent parasitic thermal sources affecting the `AHT20` when mounted on a compact breadboard:
+- **`MQ-135` 5V Heater Bias:** Dissipates $\approx 0.75\text{ W}$ ($\approx 150\text{ mA}$). When mounted on the 400-point board, it contributed **$+0.7\text{ }^\circ\text{C}$** of radiative and conductive bias ($21.6\text{ }^\circ\text{C} \to 20.9\text{ }^\circ\text{C}$ upon removal).
+- **ESP32-C3 CPU + Wi-Fi Radio + OLED Bias:** When seated just $7\text{ mm}$ away on the 400-point mini-board, the CPU and Wi-Fi transmit pulses added an additional **$+1.6\text{ }^\circ\text{C}$** parasitic heating ($21.0\text{ }^\circ\text{C} \to 19.4\text{ }^\circ\text{C}$).
+- **Total Combined Breadboard Heating:** $\approx \mathbf{+2.3\text{ }^\circ\text{C}}$.
+- **Hardware Mitigation:** Moving the entire system to an **830-point breadboard ($16.5\text{ cm}$ length)** with physical separation between the microcontroller and sensor modules immediately restored true ambient room temperature (**$19.4\text{ }^\circ\text{C}$**), matching nocturnal thermal gradients.
+
+### 3. Psychrometric Relative Humidity Coupling (Clausius-Clapeyron)
+- During the thermal transition from $21.0\text{ }^\circ\text{C}$ down to $19.4\text{ }^\circ\text{C}$ on the 830-point board, measured Relative Humidity rose from **$65.2\%$ to $69.2\%$**.
+- **Thermodynamic Verification:** Evaluating the partial vapor pressure $e = \text{RH} \cdot e_s(T)$ via the Tetens/Magnus equation confirmed that $e \approx 16.2\text{ hPa}$ remained strictly constant. The apparent RH increase is a direct consequence of the temperature decrease lowering the saturation vapor pressure $e_s(T)$, validating the physical accuracy of the `AHT20`.
+
+### 4. High-Impedance ADC Floating Antenna Effect (`GPIO 0`)
+- When the `MQ-135` is unplugged, leaving `GPIO 0` unconnected turns the unbuffered internal ADC pin into an RF antenna picking up Wi-Fi burst pulses and 50 Hz mains noise, causing readings to jump erratically ($400 \to 969 \to 2000\text{ ppm}$).
+- **Fix:** Connecting a jumper from `GPIO 0` directly to `GND` anchors the ADC to $0.00\text{ V}$, locking the baseline firmly at the clean-air calibration value ($400\text{ ppm}$).
 
 ---
 
@@ -158,18 +173,43 @@ To eliminate the $0.75\text{ W}$ heating dissipation, save power, and obtain res
 
 ---
 
-## 🔗 REST API & Live Endpoints (`v1.2`)
+## 🔗 REST API & Live Endpoints (`v1.3`)
 
-- **`GET /`**: Live responsive dashboard featuring smooth 2-second `fetch()` telemetry, live NTP clock, real-time statistics (`Min / Avg / Max` with timestamps), and **adaptive charts with dynamic auto-scaling** (auto-fitting the vertical axis to real-time Min–Max bounds with a fixed-scale toggle button).
-- **`GET /api/sensors`**: Structured JSON telemetry (`timestamp`, `uptime_s`, `current` readings, and running `stats` with `min`, `min_t`, `avg`, `max`, `max_t`).
-- **`GET /api/history`**: Compact JSON array of 24h data points (`[timestamp_short, temp, hum, pres, air_ppm]`) powering the frontend charts.
-- **`GET /api/history.csv`**: Downloadable 24-hour CSV datalog (`288` samples at 5-minute intervals stored in the `ESP32-C3` circular RAM buffer).
+- **`GET /`**: Live responsive dashboard featuring 2-second asynchronous `fetch()` telemetry, live NTP clock, real-time statistics (`Min / Avg / Max` with timestamps), **interactive canvas tooltip**, and **adaptive 48h charts with dynamic auto-scaling**.
+- **`GET /api/sensors`**: Structured JSON telemetry including sensor readings, session stats, and on-board storage health:
+  ```json
+  {
+    "uptime_s": 86400,
+    "current": { "temp": 19.4, "humidity": 69.2, "pressure": 958.6, "air_ppm": 400 },
+    "storage": { "used_kb": 12.4, "total_kb": 512.0, "pct": 2.4, "days_left": 39.1, "warning": false }
+  }
+  ```
+- **`GET /api/history`**: Compact JSON array of up to 576 48-hour data points (`[timestamp_short, temp, hum, pres, air_ppm]`).
+- **`GET /api/history.csv`**: Direct stream of `/history.csv` from LittleFS flash memory (5-minute resolution).
+- **`GET /api/history/clear?confirm=true`** (or `POST`): Remote purge of the LittleFS historical log, recreating a fresh header.
 
 ---
 
-## 📊 Dual Display & Visualization Architecture
+## 🐍 Automated PC Synchronization & Master Archiving (`scripts/`)
+
+To prevent flash overflow without losing data, the Python CLI tool [`sync_station_data.py`](../../scripts/sync_station_data.py) runs on any computer connected to the same LAN (zero pip dependencies):
+
+```bash
+# 1. Standard sync: downloads 48h history, deduplicates rows, appends to master CSV
+python scripts/sync_station_data.py --ip 192.168.1.5
+
+# 2. Automated sync & purge: verifies master CSV is saved before clearing ESP32 Flash
+python scripts/sync_station_data.py --ip 192.168.1.5 --purge
+```
+
+- **Double-Click Runners:** Windows users can double-click [`sync_station.bat`](../../scripts/sync_station.bat) or [`sync_and_purge.bat`](../../scripts/sync_and_purge.bat).
+- **Master Archive:** Consolidated locally into `D:\00_IoT_Projects\data\env_station_master.csv`.
+
+---
+
+## 📊 Dual Display & Visualization Architecture (`v1.3`)
 
 | Surface | Target Variable(s) | Scaling Type | Features |
 |---|---|---|---|
-| **OLED (`SSD1306`)** | Slides 3 & 4: `Temp` & `Humidity` | **Dynamic Scale** ($\text{Min}$ to $\text{Max}$) | Automatically scales to the exact 24h extreme values registered on-device, maximizing visual contrast on a 128x64 display. |
-| **Web Dashboard (`HTML5`)** | Full Suite: `Temp`, `Hum`, `Pres`, `Air` | **Dynamic Scale by default** (with toggle to Fixed Range) | Dynamically zooms in on real 24h min-max range (with 15% margins) to highlight subtle microclimate variations, with a one-click toggle to standard fixed ranges. |
+| **OLED (`SSD1306`)** | Slides 3 & 4: `Temp` & `Humidity` | **Dynamic Scale (48H)** ($\text{Min}$ to $\text{Max}$) | Auto-scans true min/max directly from active points in `historyBuffer` with `span < 0.5f` division-by-zero protection. Displays `MX` and `MN` badges and low storage alert (`MEM LOW!`). |
+| **Web Dashboard (`HTML5`)** | Full Suite: `Temp`, `Hum`, `Pres`, `Air` | **Dynamic Scale (48H)** (with toggle to Fixed Range) | **Interactive Canvas Tooltip:** Vertical dashed crosshair with dynamic tooltip box displaying `HH:MM | Value Unit` on mouse hover or mobile touch. Includes low flash storage banner. |

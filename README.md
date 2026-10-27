@@ -10,31 +10,38 @@ A modular laboratory and hardware/software monorepo built around the **ESP32 eco
 D:\00_IoT_Projects\
 ├── README.md                                  # Main repository documentation (English)
 ├── .gitignore                                 # Git ignore rules (PlatformIO, Arduino, Python)
+├── data/
+│   └── env_station_master.csv                 # Consolidated, deduplicated master telemetry archive
 ├── projects/
-│   └── 01_env_station/                        # Project 01: Multi-Sensor Environmental & Air Quality Station
-│       ├── README.md                          # Project 01 specific documentation & wiring map
-│       ├── platformio.ini                     # PlatformIO configuration (esp32dev & esp32c3)
-│       └── env_station/                       # Modular C++/Arduino source code (SOLID SRP & KISS)
-│           ├── env_station.ino                # Main orchestrator (setup, loop & Wi-Fi lifecycle)
-│           ├── config.h                       # Pin mapping, NTP config, thresholds & secrets loader
-│           ├── secrets.example.h              # Public template for private Wi-Fi/API credentials
-│           ├── time_service.h                 # NTP clock synchronization (ntp.shoa.cl) & formatting
-│           ├── sensors.h                      # Pure sensor acquisition (AHT20, BMP280, MQ-135)
-│           ├── alert_manager.h                # Threshold evaluation & passive buzzer control
-│           ├── stats_logger.h                 # Running Min/Max/Avg & 24h circular RAM buffer + CSV
-│           ├── oled_display.h                 # Large-text 3-slide OLED carousel + Clock & IP bar
-│           ├── index_html.h                   # Isolated HTML5/CSS/JS frontend dashboard template
-│           └── web_server.h                   # REST JSON API (/api/sensors), CSV export & HTTP routes
+│   ├── 01_env_station/                        # Project 01: Multi-Sensor Environmental & Air Quality Station (v1.3)
+│   │   ├── README.md                          # Project 01 specific documentation, thermal budget & wiring map
+│   │   ├── platformio.ini                     # PlatformIO configuration (esp32dev & esp32c3)
+│   │   └── env_station/                       # Modular C++/Arduino source code (SOLID SRP & KISS)
+│   │       ├── env_station.ino                # Main orchestrator (setup, loop & Wi-Fi lifecycle)
+│   │       ├── config.h                       # Pin mapping, NTP config, thresholds & secrets loader
+│   │       ├── secrets.example.h              # Public template for private Wi-Fi/API credentials
+│   │       ├── time_service.h                 # NTP clock synchronization (ntp.shoa.cl) & formatting
+│   │       ├── sensors.h                      # Pure sensor acquisition (AHT20, BMP280, MQ-135)
+│   │       ├── alert_manager.h                # Threshold evaluation & passive buzzer control
+│   │       ├── stats_logger.h                 # LittleFS flash persistence (~40 days) & 48h circular buffer (576 pts)
+│   │       ├── oled_display.h                 # Dynamic auto-scaling 48H OLED carousel + Clock, IP & flash alert bar
+│   │       ├── index_html.h                   # HTML5/Canvas dashboard with interactive hover tooltips (PROGMEM)
+│   │       └── web_server.h                   # REST JSON API (/api/sensors), flash stream (/api/history.csv) & purge
+│   └── 02_ert_resistivity/                    # Project 02: 2D Electrical Resistivity Tomography (ERT) Mini-Meter
+│       └── README.md                          # Theoretical foundations, analog sandbox modeling & array benchmarks
 ├── docs/
 │   ├── 01_getting_started_esp32.md            # Step-by-step hardware & metrological validation guide
 │   ├── 02_geophysics_and_environment_lab.md   # Architecture: Seismology, 2D ERT, Multi-Zone IoT & Modern Physics
 │   ├── 03_edge_ai_tinyml_roadmap.md           # Edge AI (TinyML) & Scientific ML roadmap (AI-1 to AI-9)
 │   ├── 04_mamba_cuda_esp32_setup.md           # Python (Mamba/CUDA) + ESP32 development environment guide
-│   └── 05_cpp_for_python_java_programmers.md   # C++ for Python, Java & JS developers (Rosetta stone & API reference)
-├── hardware_inventory/
+│   └── 05_cpp_for_python_java_programmers.md  # C++ for Python, Java & JS developers (Rosetta stone & API reference)
+├── hardware/
 │   ├── hardware_catalog.html                  # Interactive bill of materials (BOM) & sensor specs
 │   └── inventory_check.xlsx                   # Hardware inventory spreadsheet
 ├── scripts/
+│   ├── sync_station_data.py                   # Automated PC sync & archive CLI (zero pip dependencies)
+│   ├── sync_station.bat                       # Windows one-click sync runner
+│   ├── sync_and_purge.bat                     # Windows one-click sync & secure flash purge runner
 │   ├── install_libraries_win.ps1              # Automated Arduino CLI library installer (Windows)
 │   └── install_libraries_linux.sh             # Automated Arduino CLI library installer (Linux/Debian)
 └── drivers/
@@ -47,8 +54,8 @@ D:\00_IoT_Projects\
 
 | ID | Project | Target MCU | Core Sensors / Hardware | Status |
 |:--:|---|---|---|---|
-| **01** | **Environmental & Air Quality Station** (`projects/01_env_station`) | `ESP32 DevKit 30P` / `ESP32-C3 Super Mini` | `AHT20` (Temp/RH), `BMP280` (Pressure), `MQ-135` (Air/Gas), `SSD1306 OLED`, Buzzer, NTP Clock | ✅ **Operational (v1.2)** (SOLID/KISS, REST API, Dynamic OLED & Web Charts, Metrological DMC/QFE Calibrated, $+0.7^\circ\text{C}$ Thermal Cross-Talk Characterized; Upgrade path: `ENS160+AHT21` / `SGP40`) |
-| **02** | **2D Electrical Resistivity Tomography (ERT) & SEV Mini-Meter** (`projects/02_ert_meter`) | `ESP32 DevKit 30P` / `C3` | `ADS1115` (16-bit Differential ADC), Bipolar Injection (`D25`/`D26`), $1\text{ k}\Omega$ Shunt, 4 Electrodes | 🚀 **In Active Development** (5-Array Comparative Benchmark: Wenner, Dipole-Dipole, Schlumberger 1D, Wenner-Schlumberger, Pole-Dipole; depth $z_e \approx 0.52a$; `RES2DINV` `.dat` / `ResIPy` / `pyGIMLi` export) |
+| **01** | **Environmental & Air Quality Station** (`projects/01_env_station`) | `ESP32 DevKit 30P` / `ESP32-C3 Super Mini` | `AHT20` (Temp/RH), `BMP280` (Pressure), `MQ-135` (Air/Gas), `SSD1306 OLED`, Buzzer, NTP Clock | ✅ **Operational (v1.3)** (SOLID/KISS, REST API, 48h LittleFS flash persistence ~40 days, Dynamic 48h OLED auto-scaling, Canvas hover tooltip, 830-point breadboard thermal isolation validated, $+2.3^\circ\text{C}$ parasitic self-heating eliminated, Python sync CLI; Upgrade path: `ENS160+AHT21` / `SGP40`) |
+| **02** | **2D Electrical Resistivity Tomography (ERT) & SEV Mini-Meter** (`projects/02_ert_resistivity`) | `ESP32 DevKit 30P` / `C3` | `ADS1115` (16-bit Differential ADC), Bipolar Injection (`D25`/`D26`), $1\text{ k}\Omega$ Shunt, 4 Electrodes | 🚀 **In Active Development** (5-Array Comparative Benchmark: Wenner, Dipole-Dipole, Schlumberger 1D, Wenner-Schlumberger, Pole-Dipole; depth $z_e \approx 0.52a$; `RES2DINV` `.dat` / `ResIPy` / `pyGIMLi` export) |
 | **03** | **Modern Physics Lab: Planck's Constant ($h$)** | `ESP32 DevKit 30P` | 8-bit `DAC` (`D25`), `ADS1115` (16-bit), Multi-wavelength LEDs ($470\text{–}940\text{ nm}$) | 📋 Planned ($e V_0 = h\nu - \phi$ linear regression) |
 | **04** | **Spectral Remote Sensing: Proximal Active `NDVI` Sensor** | `ESP32 DevKit 30P` / `C3` | Red LED ($625\text{ nm}$), NIR Emitter/Photodiode ($940\text{ nm}$, `HW-201`), `ADS1115`, `BH1750` | 📋 Planned ($\text{NDVI} = \frac{\rho_{\text{NIR}} - \rho_{\text{Red}}}{\rho_{\text{NIR}} + \rho_{\text{Red}}}$) |
 | **05** | **Special Relativity & Cosmic Ray Muon Detector** | `XIAO ESP32-S3 Sense` | `OV2640` CMOS Dark-Frame Detector (or `BPW34` PIN Photodiodes) | 📋 Planned (Time dilation $\tau = \gamma\tau_0$ & Poisson statistics) |
