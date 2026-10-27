@@ -88,7 +88,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
   </div>
 
   <div class="actions">
-    <a class="btn" href="/api/history.csv">📥 Download 24h CSV</a>
+    <a class="btn" href="/api/history.csv">📥 Download 48h CSV</a>
     <a class="btn" href="/api/sensors" target="_blank">🔗 JSON API</a>
   </div>
   <div class="foot">Live updates every 2s · <span id="storageInfo">Flash: -- KB / 512 KB</span></div>
@@ -97,6 +97,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
     let activeMetric = 'temp';
     let isDynamic = true; // Default: Dynamic scale for high detail
     let historyData = [];
+    let hoverIndex = -1;
 
     const SCALES = {
       temp: { fixedMin: 10.0,  fixedMax: 40.0,   unit: '°C',  color: '#fb923c', title: 'Temperature' },
@@ -232,6 +233,63 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
           ctx.fillText(historyData[dataIdx][0], px, H - 6);
         }
       }
+
+      // Draw interactive Hover Tooltip on pointer over point
+      if (hoverIndex >= 0 && hoverIndex < n) {
+        const hVal = historyData[hoverIndex][mIdx];
+        const hTime = historyData[hoverIndex][0];
+        const hx = padL + (n > 1 ? (plotW * hoverIndex / (n - 1)) : (plotW / 2));
+        let hNorm = (hVal - yMin) / (yMax - yMin);
+        if (hNorm < 0) hNorm = 0; if (hNorm > 1) hNorm = 1;
+        const hy = padT + plotH * (1.0 - hNorm);
+
+        // 1. Subtle vertical dashed guide line
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(hx, padT);
+        ctx.lineTo(hx, padT + plotH);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 2. Glowing target circle on hovered data point
+        ctx.fillStyle = cfg.color;
+        ctx.beginPath();
+        ctx.arc(hx, hy, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.arc(hx, hy, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 3. Floating tooltip box
+        const tipText = hTime + ' | ' + hVal.toFixed(activeMetric === 'pres' || activeMetric === 'air' ? 0 : 1) + ' ' + cfg.unit;
+        ctx.font = 'bold 11px sans-serif';
+        const textW = ctx.measureText(tipText).width;
+        let tipX = hx - textW / 2 - 8;
+        let tipY = hy - 24;
+
+        if (tipX < padL) tipX = padL;
+        if (tipX + textW + 16 > W - padR) tipX = W - padR - textW - 16;
+        if (tipY < padT) tipY = hy + 10;
+
+        ctx.fillStyle = '#0f172a';
+        ctx.strokeStyle = cfg.color;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(tipX, tipY, textW + 16, 20, 4);
+        } else {
+          ctx.rect(tipX, tipY, textW + 16, 20);
+        }
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#f8fafc';
+        ctx.textAlign = 'left';
+        ctx.fillText(tipText, tipX + 8, tipY + 14);
+      }
     }
 
     async function fetchHistory() {
@@ -289,6 +347,32 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
     fetchHistory();
     setInterval(refreshData, 2000);
     setInterval(fetchHistory, 30000);
+
+    // Interactive mouse & mobile touch hover listener
+    function handlePointer(clientX) {
+      if (!historyData || historyData.length === 0) return;
+      const cv = document.getElementById('cv');
+      const rect = cv.getBoundingClientRect();
+      const mouseX = (clientX - rect.left) * (cv.width / rect.width);
+      const padL = 46, padR = 15;
+      const plotW = cv.width - padL - padR;
+
+      if (mouseX >= padL && mouseX <= cv.width - padR) {
+        const ratio = (mouseX - padL) / plotW;
+        hoverIndex = Math.round(ratio * (historyData.length - 1));
+      } else {
+        hoverIndex = -1;
+      }
+      drawChart();
+    }
+
+    const cvEl = document.getElementById('cv');
+    cvEl.addEventListener('mousemove', e => handlePointer(e.clientX));
+    cvEl.addEventListener('mouseleave', () => { hoverIndex = -1; drawChart(); });
+    cvEl.addEventListener('touchmove', e => {
+      if (e.touches && e.touches.length > 0) handlePointer(e.touches[0].clientX);
+    }, { passive: true });
+    cvEl.addEventListener('touchend', () => { hoverIndex = -1; drawChart(); });
   </script>
 </body>
 </html>

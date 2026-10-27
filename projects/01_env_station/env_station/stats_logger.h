@@ -48,8 +48,8 @@ struct StationStats {
   MetricStats airPpm;
 };
 
-// Compact 24-hour circular buffer entry (16 bytes per record * 288 = 4.6 KB RAM)
-#define MAX_HISTORY_RECORDS 288
+// Compact 48-hour circular buffer entry (16 bytes per record * 576 = 9.2 KB RAM)
+#define MAX_HISTORY_RECORDS 576
 
 struct HistoryRecord {
   char     timeLabel[20]; // "YYYY-MM-DD HH:MM:SS"

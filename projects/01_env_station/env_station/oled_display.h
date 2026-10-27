@@ -40,7 +40,7 @@ void renderOledGraph(const char* label, float minV, float maxV, const char* unit
   // 1. Top header (y = 0..14)
   display.setTextSize(1);
   display.setCursor(0, 0);
-  display.printf("%s 24H", label);
+  display.printf("%s 48H", label);
 
   display.setCursor(70, 0);
   display.printf("MX:%.1f", maxV);

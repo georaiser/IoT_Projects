@@ -94,7 +94,7 @@ void handleApiHistoryCsv() {
     }
   }
   String csv = buildHistoryCsv();
-  server.sendHeader("Content-Disposition", "attachment; filename=\"env_station_24h.csv\"");
+  server.sendHeader("Content-Disposition", "attachment; filename=\"env_station_48h.csv\"");
   server.send(200, "text/csv", csv);
 }
 
