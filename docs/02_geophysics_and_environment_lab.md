@@ -299,11 +299,55 @@ Uno de los objetivos científicos centrales del Proyecto 02 es **comparar direct
 Para validar el resistivímetro antes de salir a terreno, se utiliza el montaje canónico de modelado físico análogo (*sandbox modeling*):
 - **Recipiente:** Caja plástica organizadora o terrario de vidrio/acrílico de $40\text{--}60\text{ cm}$ de largo $\times 20\text{--}25\text{ cm}$ de ancho $\times 15\text{ cm}$ de profundidad.
 - **Matriz de fondo:** Arena fina humedecida uniformemente con agua ligeramente mineralizada para establecer una resistividad de fondo homogénea ($\rho_{\text{matriz}} \approx 30\text{--}80\ \Omega\cdot\text{m}$).
-- **Electrodos de superficie:** 16 a 24 clavos delgados de acero inoxidable clavados en línea en la arena, con separación básica $a = 2.0\text{ cm}$ o $2.5\text{ cm}$ (secuencia multi-nivel $n = 1, 2, 3, 4, 5$).
+- **Electrodos de superficie:** 16 a 24 varillas delgadas de acero inoxidable clavadas en línea en la arena, con separación básica $a = 2.0\text{ cm}$ o $2.5\text{ cm}$ (secuencia multi-nivel $n = 1, 2, 3, 4, 5$).
 - **Anomalías enterradas controladas:**
   1. *Anomalía Resistiva ($\rho \gg \rho_{\text{matriz}}$):* Bloque de madera seca, tubo de PVC cerrado o roca ígnea densa (simula cavidades, fallas secas o túneles).
   2. *Anomalía Conductora ($\rho \ll \rho_{\text{matriz}}$):* Esponja saturada con salmuera concentrada o barra metálica (simula acuífero salino o cuerpo mineralizado de sulfuros).
 - **Resultado:** La pseudosección generada por el ESP32 se invierte en `RES2DINV` / `pyGIMLi`, reconstruyendo la forma, posición horizontal $x$ y profundidad $z$ de las anomalías enterradas.
+- **Las 2 Reglas de Oro en el Terrario:**
+  1. **Efecto Escala ($\Delta V_{MN} \propto 1/a$) y Humectación Homogénea:** En el terrario ($a = 2\text{ cm}$), la señal es naturalmente **$100\text{ veces mayor}$** que en el campo ($a = 2\text{ m}$) para la misma corriente $I$. A diferencia del campo abierto (donde se vierte salmuera en las picas $A$ y $B$ para bajar $R_{\text{contacto}}$ de $3\,000\ \Omega$ a $150\ \Omega$), **en el terrario jamás se debe echar agua con sal en un clavo individual**, pues a $2\text{ cm}$ de distancia la sal se difunde hacia los electrodos vecinos y contamina la matriz homogénea. La arena debe humedecerse toda por igual con atomizador.
+  2. **Prevención de Electrólisis y Burbujas Aislantes:** En electrodos delgados, corrientes continuas altas ($> 30\text{ mA}$) disocian el agua ($2\text{H}_2\text{O} \to 2\text{H}_2\uparrow + \text{O}_2\uparrow$), recubriendo el metal con microburbujas aislantes. Por ello se emplean **pulsos bipolares cortos ($+V$ por $25\text{ ms}$, $-V$ por $25\text{ ms}$ y corte a `OFF`)**.
+
+---
+
+#### 🔧 Evolución de Hardware: Del Modo Base (Resistencias AFEL) al Sistema Automatizado (`INA226` + `TB6612FNG` + `4× CD74HC4067`)
+
+Por la Ley de Ohm ($I = \frac{V_{\text{inj}}}{R_{\text{contacto}} + R_{\text{suelo}} + R_s}$), aumentar la corriente inyectada $I$ multiplica directamente la señal medida $\Delta V_{MN} = \frac{\rho I}{K}$. El proyecto soporta dos niveles de implementación:
+
+##### Nivel 1 — Modo Base en Protoboard (100% en Inventario con Resistencias del Kit AFEL `P0`)
+Sin comprar ningún componente adicional, se aprovecha la capacidad de los pines GPIO del ESP32 (hasta $15\text{--}20\text{ mA}$ seguros) implementando un **selector de doble resistencia *shunt* con jumper** en la protoboard y lectura diferencial en el `ADS1115` (`A0-A1` para $\Delta V_{MN}$ y `A2-A3` para $\Delta V_{\text{shunt}}$):
+
+| Rango en Protoboard | Resistencia *Shunt* ($R_s$) | Corriente Inyectada ($I$) | Aplicación Ideal |
+|---|:---:|:---:|---|
+| **Modo Estándar** | **$1\,000\ \Omega$** ($1\text{ k}\Omega$) | $1.0\text{ a }3.0\text{ mA}$ | Arreglos de alta señal (**Wenner**, **Schlumberger**) y niveles someros ($n=1, 2$). |
+| **Modo Alta Corriente (`High-SNR`)** | **$220\ \Omega$** | **$8.0\text{ a }14.0\text{ mA}$** | Multiplica por $\times 4.5$ la señal para **Dipolo-Dipolo** y **Polo-Dipolo** en niveles profundos del terrario ($n=3, 4, 5, 6$, donde la señal decae con $1/n^3$). |
+
+##### Nivel 2 — Upgrade Kit Semiprofesional y Conmutación Automática Multielectrodo
+Para escalar desde el cambio manual de cables hacia una estación tomográfica automatizada comparable a equipos comerciales (*Syscal* / *SuperSting*), se incorporan cuatro mejoras modulares de bajo costo:
+
+```text
+                       ┌───────────────────────────────────────────────────────┐
+                       │         ESP32 DevKit 30P / ESP32-S3                   │
+                       └───────┬───────────────────┬───────────────────┬───────┘
+                     D25 / D26 │           Bus I2C │         S0..S3    │ Control
+                               ▼                   ▼                   ▼
+                       ┌───────────────┐   ┌───────────────┐   ┌───────────────────────────────┐
+                       │  TB6612FNG    │   │ INA226 (16b)  │   │ 4× Multiplexores CD74HC4067   │
+                       │ Puente H MOS  ├──►│ Medidor I (mA)├──►│ MUX_A, MUX_B (Inyección)      │
+                       │ (±3.3V a ±12V)│   │ + ADS1115 (V) │   │ MUX_M, MUX_N (Potencial)      │
+                       └───────────────┘   └───────▲───────┘   └───────────────┬───────────────┘
+                                                   │                           │
+                                                   └───────── ΔV_MN ───────────┤
+                                                                               ▼
+                                                               [ 16 Electrodos Inox 316L en Terrario ]
+```
+
+| Módulo de Upgrade | Qué Reemplaza / Mejora | Beneficio Técnico y Científico | Costo Ref. (Chile) |
+|---|---|---|:---:|
+| **1× `INA226` (I2C 16-bit)** | Resistencia *shunt* discreta y canal `A2-A3` del ADS1115 | Mide la corriente $I$ con *shunt* SMD de precisión sin deriva térmica y **libera los 4 canales del `ADS1115`** para medir potencial. | ~\$3.500 CLP |
+| **1× `TB6612FNG` (o `DRV8833`)** | Inyección directa desde pines GPIO del ESP32 | **Puente H MOSFET** de bajísima caída (muy superior al `L298N`). Conmuta $\pm 3.3\text{ V}$, $\pm 5\text{ V}$ o $\pm 12\text{ V}$ (hasta $1.2\text{ A}$) sin cargar el microcontrolador. | ~\$3.000 CLP |
+| **4× `CD74HC4067` (16ch MUX)** | Mover los 4 caimanes a mano (~100 veces por experimento) | **Conmutación automática de 16 electrodos** (`MUX A`, `MUX B`, `MUX M`, `MUX N`). Ejecuta el **Benchmark completo de los 5 arreglos en $< 10\text{ s}$** con un clic desde la web. | ~\$8.000 CLP (los 4) |
+| **Varillas Inox 316L (TIG / Rayos)** | Clavos de fierro o acero galvanizado | Elimina la corrosión rápida y los voltajes galvánicos parásitos en contacto con la humedad. | ~\$3.000 CLP |
 
 ---
 

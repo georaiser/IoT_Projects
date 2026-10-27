@@ -55,7 +55,7 @@ D:\00_IoT_Projects\
 | ID | Project | Target MCU | Core Sensors / Hardware | Status |
 |:--:|---|---|---|---|
 | **01** | **Environmental & Air Quality Station** (`projects/01_env_station`) | `ESP32 DevKit 30P` / `ESP32-C3 Super Mini` | `AHT20` (Temp/RH), `BMP280` (Pressure), `MQ-135` (Air/Gas), `SSD1306 OLED`, Buzzer, NTP Clock | ✅ **Operational (v1.3)** (SOLID/KISS, REST API, 48h LittleFS flash persistence ~40 days, Dynamic 48h OLED auto-scaling, Canvas hover tooltip, 830-point breadboard thermal isolation validated, $+2.3^\circ\text{C}$ parasitic self-heating eliminated, Python sync CLI; Upgrade path: `ENS160+AHT21` / `SGP40`) |
-| **02** | **2D Electrical Resistivity Tomography (ERT) & SEV Mini-Meter** (`projects/02_ert_resistivity`) | `ESP32 DevKit 30P` / `C3` | `ADS1115` (16-bit Differential ADC), Bipolar Injection (`D25`/`D26`), $1\text{ k}\Omega$ Shunt, 4 Electrodes | 🚀 **In Active Development** (5-Array Comparative Benchmark: Wenner, Dipole-Dipole, Schlumberger 1D, Wenner-Schlumberger, Pole-Dipole; depth $z_e \approx 0.52a$; `RES2DINV` `.dat` / `ResIPy` / `pyGIMLi` export) |
+| **02** | **2D Electrical Resistivity Tomography (ERT) & SEV Mini-Meter** (`projects/02_ert_meter`) | `ESP32 DevKit 30P` / `C3` | `ADS1115` (16-bit Diff. ADC), Bipolar Injection (`D25`/`D26`), Dual Shunt ($1\text{ k}\Omega / 220\ \Omega$); Upgrade path: `INA226` + `TB6612FNG` + `4× CD74HC4067` 16ch MUX | 🚀 **In Active Development** (5-Array Comparative Benchmark: Wenner, Dipole-Dipole, Schlumberger 1D, Wenner-Schlumberger, Pole-Dipole; depth $z_e \approx 0.52a$; `RES2DINV` `.dat` / `ResIPy` / `pyGIMLi` export) |
 | **03** | **Modern Physics Lab: Planck's Constant ($h$)** | `ESP32 DevKit 30P` | 8-bit `DAC` (`D25`), `ADS1115` (16-bit), Multi-wavelength LEDs ($470\text{–}940\text{ nm}$) | 📋 Planned ($e V_0 = h\nu - \phi$ linear regression) |
 | **04** | **Spectral Remote Sensing: Proximal Active `NDVI` Sensor** | `ESP32 DevKit 30P` / `C3` | Red LED ($625\text{ nm}$), NIR Emitter/Photodiode ($940\text{ nm}$, `HW-201`), `ADS1115`, `BH1750` | 📋 Planned ($\text{NDVI} = \frac{\rho_{\text{NIR}} - \rho_{\text{Red}}}{\rho_{\text{NIR}} + \rho_{\text{Red}}}$) |
 | **05** | **Special Relativity & Cosmic Ray Muon Detector** | `XIAO ESP32-S3 Sense` | `OV2640` CMOS Dark-Frame Detector (or `BPW34` PIN Photodiodes) | 📋 Planned (Time dilation $\tau = \gamma\tau_0$ & Poisson statistics) |
@@ -104,8 +104,11 @@ Detailed architecture and workflows are documented in [`docs/03_edge_ai_tinyml_r
 
 A low-cost, high-precision geophysical resistivity meter using **ESP32 DevKit 30P** (or **ESP32-C3**) and the **ADS1115 16-bit differential ADC** for shallow subsurface imaging and sandbox analog modeling:
 
-- **Mathematical Core:** $\rho_a = K \cdot \frac{\Delta V_{MN}}{I}$, where $I = \frac{\Delta V_{\text{shunt}}}{R_s}$ with $R_s = 1\text{ k}\Omega$.
-- **Bipolar Injection (`D25`/`D26`):** Reverses $+3.3\text{ V} \to -3.3\text{ V}$ to eliminate natural Self-Potential ($SP$) and cancel electrochemical polarization.
+- **Mathematical Core:** $\rho_a = K \cdot \frac{\Delta V_{MN}}{I}$, where $I = \frac{\Delta V_{\text{shunt}}}{R_s}$.
+- **Bipolar Injection (`D25`/`D26`):** Short $25\text{ ms}$ pulses reversing $+3.3\text{ V} \to -3.3\text{ V} \to \text{OFF}$ to eliminate natural Self-Potential ($SP$), prevent electrolysis gas bubbles on sandbox electrodes, and cancel electrochemical polarization.
+- **2-Tier Hardware Architecture:**
+  - **Stage 1 — Baseline Protoboard Mode (100% in inventory with AFEL Resistor Kit `P0`):** Jumper-selectable dual shunt resistor ($R_{s1} = 1\,000\ \Omega$ for $1\text{--}3\text{ mA}$ standard mode; $R_{s2} = 220\ \Omega$ for $8\text{--}14\text{ mA}$ High-SNR mode in deep Dipole-Dipole levels $n=3\text{--}6$).
+  - **Stage 2 — Automated Multi-Electrode Upgrade Kit (Optional):** **`INA226`** (16-bit I2C precision current sensor freeing `ADS1115` channels `A2-A3`) + **`TB6612FNG`** (MOSFET H-Bridge for $\pm 5\text{ V} / \pm 12\text{ V}$ injection) + **`4× CD74HC4067`** (16-channel analog multiplexers switching 16 stainless-steel 316L electrodes automatically across all 5 arrays in $< 10\text{ s}$).
 - **5-Array Comparative Benchmark (Multi-Array Suite):**
   - **Wenner ($\alpha$):** $K = 2\pi a$, $z_e \approx 0.52 a$ (highest SNR, baseline for horizontal layering and water table).
   - **Dipole-Dipole:** $K = \pi n(n+1)(n+2)a$ (maximum horizontal resolution for vertical dykes, faults, cavities, and buried pipes).
