@@ -211,13 +211,14 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
         const parts = s.split(' ');
         if (parts.length >= 2) {
           const dp = parts[0].split('-');
-          const dm = (dp.length === 3) ? (dp[2] + '/' + dp[1]) : parts[0];
-          return { date: parts[0], dayMonth: dm, time: parts[1] };
+          if (dp.length === 3 && dp[0].length === 4) {
+            return { date: parts[0], dayMonth: (dp[2] + '/' + dp[1]), time: parts[1] };
+          }
         }
         return { date: '', dayMonth: '', time: s };
       }
 
-      // Draw clean X-axis with Day Boundaries & Intermediate Time ticks
+      // Draw clean X-axis: strictly the FIRST measurement of each day + current time at the end
       if (n === 1) {
         const p0 = parseTs(historyData[0][0]);
         ctx.fillStyle = '#38bdf8';
@@ -228,26 +229,30 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
         ctx.font = '10px sans-serif';
         ctx.fillText(p0.time, padL + plotW / 2, padT + plotH + 26);
       } else {
-        // 1. Identify Day Boundaries: Point 0 (initial) + rollover where calendar date changes
+        // 1. Identify strictly the FIRST measurement of each calendar day (no duplicates, no syncing artifacts)
+        const seenDates = new Set();
         const dayTicks = [];
+
         for (let i = 0; i < n; i++) {
           const p = parseTs(historyData[i][0]);
-          if (i === 0) {
-            dayTicks.push({ idx: 0, px: padL, date: p.dayMonth, time: p.time, isNewDay: false });
-          } else {
-            const prevP = parseTs(historyData[i - 1][0]);
-            if (p.date && prevP.date && p.date !== prevP.date) {
-              const px = padL + (plotW * i / (n - 1));
-              dayTicks.push({ idx: i, px: px, date: p.dayMonth, time: p.time, isNewDay: true });
-            }
+          if (p.date && p.date.length === 10 && !seenDates.has(p.date)) {
+            seenDates.add(p.date);
+            const px = padL + (plotW * i / (n - 1));
+            dayTicks.push({
+              idx: i,
+              px: px,
+              date: p.dayMonth,
+              time: p.time,
+              isNewDay: (dayTicks.length > 0)
+            });
           }
         }
 
-        // 2. Draw vertical dashed day divider lines across the plot
+        // 2. Draw vertical dashed day divider lines across the plot for each new day
         dayTicks.forEach(dt => {
           if (dt.isNewDay) {
             ctx.save();
-            ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)'; // Distinct sky blue dashed divider
             ctx.lineWidth = 1.5;
             ctx.setLineDash([4, 4]);
             ctx.beginPath();
@@ -258,49 +263,33 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
           }
         });
 
-        // 3. Gather intermediate time ticks (so gaps between midnight boundaries have hours)
-        const timeTicks = [];
-        const tickStep = Math.max(1, Math.floor(n / 6));
-        for (let i = tickStep; i < n - 1; i += tickStep) {
-          const px = padL + (plotW * i / (n - 1));
-          const tooClose = dayTicks.some(dt => Math.abs(dt.px - px) < 42);
-          if (!tooClose) {
-            const p = parseTs(historyData[i][0]);
-            timeTicks.push({ px: px, time: p.time });
-          }
-        }
-
-        // Draw subtle vertical grid ticks & times for intermediate hours
-        ctx.strokeStyle = '#334155';
-        ctx.lineWidth = 1;
-        timeTicks.forEach(tt => {
-          ctx.beginPath();
-          ctx.moveTo(tt.px, padT);
-          ctx.lineTo(tt.px, padT + plotH);
-          ctx.stroke();
-
-          ctx.fillStyle = '#64748b';
-          ctx.font = '10px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText(tt.time, tt.px, padT + plotH + 18);
-        });
-
-        // Draw Day Boundary Labels (Date in bold cyan + Time below in slate)
+        // 3. Draw Day Labels (Date in bold cyan + First measurement time below in slate)
         dayTicks.forEach((dt, dIdx) => {
           if (dIdx === 0) ctx.textAlign = 'left';
           else if (dt.px > W - padR - 35) ctx.textAlign = 'right';
           else ctx.textAlign = 'center';
 
-          // Line 1: Date (e.g. "25/10")
+          // Line 1: Date (e.g. "25/10", "26/10", "27/10")
           ctx.fillStyle = '#38bdf8';
           ctx.font = 'bold 11px sans-serif';
           ctx.fillText(dt.date, dt.px, padT + plotH + 14);
 
-          // Line 2: Time (e.g. "14:30" or "00:00")
+          // Line 2: Time of first sample of the day (e.g. "04:01", "00:02")
           ctx.fillStyle = '#94a3b8';
           ctx.font = '10px sans-serif';
           ctx.fillText(dt.time, dt.px, padT + plotH + 26);
         });
+
+        // 4. Current time at the far right (if sufficiently far from the last day tick)
+        const lastP = parseTs(historyData[n - 1][0]);
+        const lastPx = padL + plotW;
+        const tooCloseToDay = dayTicks.some(dt => Math.abs(dt.px - lastPx) < 45);
+        if (!tooCloseToDay) {
+          ctx.textAlign = 'right';
+          ctx.fillStyle = '#94a3b8';
+          ctx.font = '10px sans-serif';
+          ctx.fillText(lastP.time, lastPx, padT + plotH + 18);
+        }
       }
 
       // Draw interactive Hover Tooltip on pointer over point
