@@ -76,15 +76,22 @@ void renderOledGraph(const char* label, float minV, float maxV, const char* unit
   display.drawLine(0, 16, 127, 16, SSD1306_WHITE); // Upper separator line
   display.drawLine(0, 52, 127, 52, SSD1306_WHITE); // Lower separator line
 
-  // Draw vertical dotted day separators where calendar date changes
-  for (uint16_t i = 1; i < historyCount; i++) {
+  // Draw vertical dotted day separators ONLY for the first measurement of each new calendar day (matches Web)
+  int lastSeenDateKey = -1;
+  for (uint16_t i = 0; i < historyCount; i++) {
     uint16_t idx = (startIdx + i) % MAX_HISTORY_RECORDS;
-    uint16_t prevIdx = (startIdx + i - 1) % MAX_HISTORY_RECORDS;
-    if (strlen(historyBuffer[idx].timeLabel) >= 10 && strlen(historyBuffer[prevIdx].timeLabel) >= 10) {
-      if (historyBuffer[idx].timeLabel[8] != historyBuffer[prevIdx].timeLabel[8] ||
-          historyBuffer[idx].timeLabel[9] != historyBuffer[prevIdx].timeLabel[9]) {
+    const HistoryRecord& rec = historyBuffer[idx];
+    if (strlen(rec.timeLabel) >= 10 && rec.timeLabel[4] == '-' && rec.timeLabel[7] == '-' &&
+        isdigit(rec.timeLabel[8]) && isdigit(rec.timeLabel[9])) {
+      int dateKey = ((rec.timeLabel[5] - '0') * 10 + (rec.timeLabel[6] - '0')) * 100 +
+                    (rec.timeLabel[8] - '0') * 10 + (rec.timeLabel[9] - '0');
+      if (lastSeenDateKey == -1) {
+        lastSeenDateKey = dateKey; // First recorded day (point 0), no divider line needed
+      } else if (dateKey != lastSeenDateKey) {
+        lastSeenDateKey = dateKey; // New day boundary!
         int x = (int)((i * 127.0f) / (historyCount - 1));
-        for (int dy = 18; dy <= 50; dy += 4) {
+        // Alternating pixel dotted line from y=18 to y=50
+        for (int dy = 18; dy <= 50; dy += 2) {
           display.drawPixel(x, dy, SSD1306_WHITE);
         }
       }
