@@ -40,7 +40,7 @@ void renderOledGraph(const char* label, float minV, float maxV, const char* unit
   if (historyCount < 2) {
     display.setTextSize(1);
     display.setCursor(0, 0);
-    display.printf("%s 48H", label);
+    display.printf("%s 72H", label);
     display.setCursor(15, 28);
     display.print("Collecting data...");
     return;
@@ -64,7 +64,7 @@ void renderOledGraph(const char* label, float minV, float maxV, const char* unit
   // 1. Top header (y = 0..14) with true dynamic Min and Max
   display.setTextSize(1);
   display.setCursor(0, 0);
-  display.printf("%s 48H", label);
+  display.printf("%s 72H", label);
 
   display.setCursor(68, 0);
   display.printf("MX:%.1f", actualMax);
@@ -75,6 +75,21 @@ void renderOledGraph(const char* label, float minV, float maxV, const char* unit
   // 2. Graph plot region: x = 0..127, y = 18..51 (height = 33 px)
   display.drawLine(0, 16, 127, 16, SSD1306_WHITE); // Upper separator line
   display.drawLine(0, 52, 127, 52, SSD1306_WHITE); // Lower separator line
+
+  // Draw vertical dotted day separators where calendar date changes
+  for (uint16_t i = 1; i < historyCount; i++) {
+    uint16_t idx = (startIdx + i) % MAX_HISTORY_RECORDS;
+    uint16_t prevIdx = (startIdx + i - 1) % MAX_HISTORY_RECORDS;
+    if (strlen(historyBuffer[idx].timeLabel) >= 10 && strlen(historyBuffer[prevIdx].timeLabel) >= 10) {
+      if (historyBuffer[idx].timeLabel[8] != historyBuffer[prevIdx].timeLabel[8] ||
+          historyBuffer[idx].timeLabel[9] != historyBuffer[prevIdx].timeLabel[9]) {
+        int x = (int)((i * 127.0f) / (historyCount - 1));
+        for (int dy = 18; dy <= 50; dy += 4) {
+          display.drawPixel(x, dy, SSD1306_WHITE);
+        }
+      }
+    }
+  }
 
   int prevX = -1;
   int prevY = -1;

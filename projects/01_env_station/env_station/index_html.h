@@ -83,12 +83,12 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
       </div>
       <button class="mode-btn" id="modeBtn" onclick="toggleScale()">Mode: Dynamic (Auto Zoom)</button>
     </div>
-    <canvas id="cv" width="650" height="180"></canvas>
+    <canvas id="cv" width="650" height="195"></canvas>
     <div class="scale-info" id="scaleInfo">Dynamic Scale: Auto-fitting Min to Max</div>
   </div>
 
   <div class="actions">
-    <a class="btn" href="/api/history.csv">📥 Download 48h CSV</a>
+    <a class="btn" href="/api/history.csv">📥 Download Full History (CSV)</a>
     <a class="btn" href="/api/sensors" target="_blank">🔗 JSON API</a>
   </div>
   <div class="foot">Live updates every 2s · <span id="storageInfo">Flash: -- KB / 512 KB</span></div>
@@ -128,7 +128,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
       const cfg = SCALES[activeMetric];
       const mIdx = { temp: 1, hum: 2, pres: 3, air: 4 }[activeMetric];
-      const padL = 46, padR = 15, padT = 15, padB = 25;
+      const padL = 46, padR = 15, padT = 15, padB = 32;
       const plotW = W - padL - padR;
       const plotH = H - padT - padB;
 
@@ -169,7 +169,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
       if (!historyData || historyData.length === 0) {
         ctx.fillStyle = '#64748b';
         ctx.textAlign = 'center';
-        ctx.fillText('Collecting 24h data samples...', W / 2, H / 2);
+        ctx.fillText('Collecting 72h data samples...', W / 2, H / 2);
         return;
       }
 
@@ -205,39 +205,110 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
         ctx.fill();
       }
 
-      // Draw clean X-axis time scale (max 4-5 evenly spaced ticks)
-      ctx.fillStyle = '#94a3b8';
-      ctx.strokeStyle = '#334155';
-      ctx.lineWidth = 1;
+      // Helper to parse timestamp ("YYYY-MM-DD HH:MM" -> date, dayMonth "DD/MM", time "HH:MM")
+      function parseTs(s) {
+        if (!s) return { date: '', dayMonth: '', time: '--:--' };
+        const parts = s.split(' ');
+        if (parts.length >= 2) {
+          const dp = parts[0].split('-');
+          const dm = (dp.length === 3) ? (dp[2] + '/' + dp[1]) : parts[0];
+          return { date: parts[0], dayMonth: dm, time: parts[1] };
+        }
+        return { date: '', dayMonth: '', time: s };
+      }
 
+      // Draw clean X-axis with Day Boundaries & Intermediate Time ticks
       if (n === 1) {
+        const p0 = parseTs(historyData[0][0]);
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = 'bold 11px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(historyData[0][0], padL + plotW / 2, H - 6);
+        ctx.fillText(p0.dayMonth, padL + plotW / 2, padT + plotH + 14);
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '10px sans-serif';
+        ctx.fillText(p0.time, padL + plotW / 2, padT + plotH + 26);
       } else {
-        const xTicks = Math.min(n, 5); // 2 to 5 clean labels, never cluttered
-        for (let t = 0; t < xTicks; t++) {
-          const dataIdx = Math.round(t * (n - 1) / (xTicks - 1));
-          const px = padL + (plotW * dataIdx / (n - 1));
-          
-          // Subtle vertical tick line
+        // 1. Identify Day Boundaries: Point 0 (initial) + rollover where calendar date changes
+        const dayTicks = [];
+        for (let i = 0; i < n; i++) {
+          const p = parseTs(historyData[i][0]);
+          if (i === 0) {
+            dayTicks.push({ idx: 0, px: padL, date: p.dayMonth, time: p.time, isNewDay: false });
+          } else {
+            const prevP = parseTs(historyData[i - 1][0]);
+            if (p.date && prevP.date && p.date !== prevP.date) {
+              const px = padL + (plotW * i / (n - 1));
+              dayTicks.push({ idx: i, px: px, date: p.dayMonth, time: p.time, isNewDay: true });
+            }
+          }
+        }
+
+        // 2. Draw vertical dashed day divider lines across the plot
+        dayTicks.forEach(dt => {
+          if (dt.isNewDay) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(dt.px, padT);
+            ctx.lineTo(dt.px, padT + plotH);
+            ctx.stroke();
+            ctx.restore();
+          }
+        });
+
+        // 3. Gather intermediate time ticks (so gaps between midnight boundaries have hours)
+        const timeTicks = [];
+        const tickStep = Math.max(1, Math.floor(n / 6));
+        for (let i = tickStep; i < n - 1; i += tickStep) {
+          const px = padL + (plotW * i / (n - 1));
+          const tooClose = dayTicks.some(dt => Math.abs(dt.px - px) < 42);
+          if (!tooClose) {
+            const p = parseTs(historyData[i][0]);
+            timeTicks.push({ px: px, time: p.time });
+          }
+        }
+
+        // Draw subtle vertical grid ticks & times for intermediate hours
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1;
+        timeTicks.forEach(tt => {
           ctx.beginPath();
-          ctx.moveTo(px, padT);
-          ctx.lineTo(px, padT + plotH);
+          ctx.moveTo(tt.px, padT);
+          ctx.lineTo(tt.px, padT + plotH);
           ctx.stroke();
 
-          // Time text alignment
-          if (t === 0) ctx.textAlign = 'left';
-          else if (t === xTicks - 1) ctx.textAlign = 'right';
+          ctx.fillStyle = '#64748b';
+          ctx.font = '10px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(tt.time, tt.px, padT + plotH + 18);
+        });
+
+        // Draw Day Boundary Labels (Date in bold cyan + Time below in slate)
+        dayTicks.forEach((dt, dIdx) => {
+          if (dIdx === 0) ctx.textAlign = 'left';
+          else if (dt.px > W - padR - 35) ctx.textAlign = 'right';
           else ctx.textAlign = 'center';
 
-          ctx.fillText(historyData[dataIdx][0], px, H - 6);
-        }
+          // Line 1: Date (e.g. "25/10")
+          ctx.fillStyle = '#38bdf8';
+          ctx.font = 'bold 11px sans-serif';
+          ctx.fillText(dt.date, dt.px, padT + plotH + 14);
+
+          // Line 2: Time (e.g. "14:30" or "00:00")
+          ctx.fillStyle = '#94a3b8';
+          ctx.font = '10px sans-serif';
+          ctx.fillText(dt.time, dt.px, padT + plotH + 26);
+        });
       }
 
       // Draw interactive Hover Tooltip on pointer over point
       if (hoverIndex >= 0 && hoverIndex < n) {
         const hVal = historyData[hoverIndex][mIdx];
-        const hTime = historyData[hoverIndex][0];
+        const hRaw = historyData[hoverIndex][0];
+        const p = parseTs(hRaw);
+        const hLabel = p.dayMonth ? (p.dayMonth + ' ' + p.time) : p.time;
         const hx = padL + (n > 1 ? (plotW * hoverIndex / (n - 1)) : (plotW / 2));
         let hNorm = (hVal - yMin) / (yMax - yMin);
         if (hNorm < 0) hNorm = 0; if (hNorm > 1) hNorm = 1;
@@ -264,7 +335,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
         ctx.fill();
 
         // 3. Floating tooltip box
-        const tipText = hTime + ' | ' + hVal.toFixed(activeMetric === 'pres' || activeMetric === 'air' ? 0 : 1) + ' ' + cfg.unit;
+        const tipText = hLabel + ' | ' + hVal.toFixed(activeMetric === 'pres' || activeMetric === 'air' ? 0 : 1) + ' ' + cfg.unit;
         ctx.font = 'bold 11px sans-serif';
         const textW = ctx.measureText(tipText).width;
         let tipX = hx - textW / 2 - 8;
