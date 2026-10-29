@@ -351,6 +351,123 @@ Para escalar desde el cambio manual de cables hacia una estación tomográfica a
 
 ---
 
+### 📡 Georradar Experimental (GPR de Mesa / Terrario) con Radar Doppler RCWL-0516
+
+El sensor **RCWL-0516** adquirido para el laboratorio integra un transmisor/receptor de microondas en banda S que opera a **$f \approx 3.18\text{ GHz}$**. Aunque de fábrica viene configurado con un comparador digital para detección de presencia binaria (`OUT` HIGH/LOW), su electrónica interna puede hackearse para convertirlo en un **escáner electromagnético de reflexión somera (GPR análogo)**:
+
+#### 1. Fundamentos Físicos de Microondas y Longitud de Onda
+- **Frecuencia de emisión:** $f_0 \approx 3.18\text{ GHz}$.
+- **Longitud de onda en el aire:** $\lambda_0 = \frac{c}{f_0} \approx 9.4\text{ cm}$.
+- **Longitud de onda en arena seca ($\varepsilon_r \approx 4$):**
+  $$\lambda = \frac{\lambda_0}{\sqrt{\varepsilon_r}} = \frac{9.4\text{ cm}}{2} \approx 4.7\text{ cm}$$
+- **Comparación industrial:** Los georradares comerciales de alta resolución para inspección de estructuras, concreto y canalizaciones superficiales (ej. *Hilti PS 1000*, *Proceq GPR*) operan justamente entre $2.0\text{ GHz}$ y $3.5\text{ GHz}$.
+
+#### 2. Penetración Dieléctrica: Suelo Seco vs. Suelo Húmedo
+- **En suelo húmedo o salino:** ❌ Las moléculas de agua líquida poseen alta permitividad ($\varepsilon_r \approx 80$) y pérdidas dieléctricas masivas a gigahertz (absorción por relajación molecular de Debye, principio del microondas doméstico). La onda de $3.2\text{ GHz}$ se extingue en $2\text{--}5\text{ cm}$.
+- **En arena seca, yeso, ladrillo, madera, PVC o terrario seco:** ✅ La atenuación es despreciable y la microonda penetra **$20\text{ a }50\text{ cm}$**, reflejándose fuertemente en contrastes dieléctricos (metales $\varepsilon_r \to \infty$, cavidades de aire $\varepsilon_r = 1$, tuberías o rocas).
+
+#### 3. El Hack de la Señal Analógica y B-Scan Sintético
+El chip integrado **RCWL-9196** procesa la señal de microondas mezclando la onda emitida con la reflejada. La señal de frecuencia intermedia (IF cruda) previa al comparador está disponible en el circuito:
+- **Punto de conexión:** Pin 12 del chip RCWL-9196 (o el nodo del capacitor de integración C-TM).
+- **Adquisición con ESP32:** Se conecta esta señal IF analógica directamente a un canal ADC del ESP32.
+- **Escaneo por Movimiento Relativo (Synthetic B-Scan):** Al deslizar el sensor a velocidad constante sobre un riel encima del terrario con arena seca, la aproximación y alejamiento de una anomalía enterrada (tubo metálico o cavidad) genera un tren de oscilación Doppler ($5\text{--}200\text{ Hz}$). Graficando la envolvente de amplitud en función de la posición $x$, el ESP32 mapea la posición horizontal exacta del objeto.
+
+#### 4. Sinergia Geofísica: ERT + GPR
+ERT y GPR son los dos métodos geofísicos superficiales más complementarios de la ciencia:
+- **ERT (Corriente Continua / Proyecto 02):** Sensible a la resistividad ($\rho$); ideal en **suelos húmedos, arcillas y acuíferos**. Falla en arena ultra seca.
+- **GPR (Microondas 3.2 GHz / RCWL-0516):** Sensible a la permitividad dieléctrica ($\varepsilon_r$); ideal en **medios secos, arenosos, rocas secas y concreto**. Falla en arcillas saturadas.
+
+---
+
+### 🔨 Métodos Sísmicos con Hardware ESP32: Pasivos y Activos
+
+Aprovechando el hardware adquirido (**`ESP32-S3 N16R8`**, **`ESP32 DevKit 30P`**, **`2× ADXL345 SPI`**, **`MPU6050`**, **`Micrófono I2S INMP441`** y **`MicroSD`**), se pueden implementar cuatro técnicas de prospección y caracterización sísmica:
+
+#### A. Sismología Pasiva y Algoritmo STA/LTA (Proyecto 06)
+- **Hardware:** `ESP32-S3` + `ADXL345` (SPI a $800\text{ Hz}$ / $1600\text{ Hz}$) + buffer circular en 8 MB PSRAM.
+- **Detección Automática de Eventos (STA/LTA):**
+  $$R(t) = \frac{\text{STA}(t)}{\text{LTA}(t)} = \frac{\frac{1}{n_s}\sum_{i=t-n_s}^t a_i^2}{\frac{1}{n_l}\sum_{i=t-n_l}^t a_i^2}$$
+  Discrimina en tiempo real sismos reales de vibraciones urbanas continuas (tráfico, pisadas).
+- **Distancia Epicentral ($S\text{-}P$):** A partir del desfase temporal entre la llegada de la onda compresional P y la de cizalla S ($\Delta t = t_S - t_P$), se calcula la distancia al foco:
+  $$d \approx \frac{V_P \cdot V_S}{V_P - V_S} \Delta t \approx 8.0 \cdot \Delta t \quad [\text{km}]$$
+
+#### B. Efectos de Sitio y Resonancia del Suelo: Razón Espectral H/V (Técnica de Nakamura / HVSR)
+- **Principio:** Con el sismógrafo triaxial registrando el **ruido sísmico ambiental continuo** (microtremores generados por oleaje marino, viento y actividad humana), se divide el espectro de amplitud de los ejes horizontales entre el eje vertical:
+  $$\text{HVSR}(f) = \frac{\sqrt{S_x(f)^2 + S_y(f)^2}}{S_z(f)}$$
+- **Resultado Geofísico:** El pico principal de la curva $\text{HVSR}(f)$ revela la **frecuencia fundamental de resonancia ($f_0$) del suelo** del sitio y su factor de amplificación sísmica, crucial para diseño sismorresistente.
+
+#### C. Sísmica Activa de Refracción Somera (Seismic Refraction)
+- **Hardware:** Placa metálica de impacto en el suelo + martillo con contacto eléctrico (*trigger* digital conectado a una interrupción GPIO de resolución de microsegundos con pull-up) + 2 acelerómetros `ADXL345` (SPI) o micrófono I2S `INMP441` a distancias conocidas ($x_1$ y $x_2$).
+- **Circuito de Disparo (Trigger Instantáneo):**
+  ```text
+       [ ESP32 GPIO con Pull-up (3.3V) ] ─── Cable al Martillo metálico
+                                                       │
+                                                       ▼ (Impacto mecánico)
+       [ GND del ESP32 ] ─────────────────── Placa metálica clavada en el suelo
+  ```
+  Al hacer contacto el martillo con la placa, el pin cae instantáneamente a `LOW` y dispara la interrupción de hardware con `micros()`, iniciando el cronómetro sísmico con error inferior a $2\ \mu\text{s}$.
+- **Física (Ley de Snell Sísmica y Dromocrónica):**
+  ```text
+         Tiempo t
+            ▲
+            │                 Onda Directa: Pendiente = 1/V1
+            │                 ─────────────────────────────►
+            │                              Onda Refractada: Pendiente = 1/V2
+            │                   ti ───────/────────────────►
+            │                    │       /
+            │                    │      /
+            │                    │     / (xcrit, tcrit)
+            │                    │    /
+            └────────────────────┴───/──────────────────────► Distancia x
+                                     xcrit
+  ```
+  Al golpear la placa, se detecta el primer arribo (*first break*) de la onda P:
+  - Onda directa en estrato superficial: $t = \frac{x}{V_1}$.
+  - Onda refractada crítica en el estrato basal más rápido ($V_2 > V_1$):
+    $$t = \frac{x}{V_2} + t_i, \qquad t_i = \frac{2 z_1 \sqrt{V_2^2 - V_1^2}}{V_1 V_2}$$
+  - Distancia crítica de cruce:
+    $$x_{\text{crit}} = 2 z_1 \sqrt{\frac{V_2 + V_1}{V_2 - V_1}}$$
+- **Parámetros Geotécnicos Obtenidos:** Velocidad de onda P del suelo vegetal/relleno ($V_1 \approx 300\text{--}600\text{ m/s}$), velocidad del estrato competente/roca basal ($V_2 \approx 1500\text{--}3500\text{ m/s}$) y profundidad exacta del contacto geológico ($z_1$).
+
+#### D. Análisis de Ondas Superficiales (MASW / Dispersión de Rayleigh) y Rigidez Dinámica
+- **Clasificación Geotécnica del Suelo (Norma Chilena NCh433 / DS61):** La velocidad de onda de corte en los primeros 30 metros ($V_{S30}$) define si el suelo es Tipo A (roca), B (roca blanda/suelo muy denso), C (suelo denso) o D/E (suelo blando/arenas licuables).
+- **Diferencia de Fase Bicanal:** Con dos acelerómetros separados a distancia $\Delta x$, la diferencia de fase $\Delta \phi(f)$ en el espectro cruzado calcula la curva de dispersión de velocidad de fase de Rayleigh:
+  $$V_R(f) = \frac{2\pi f \cdot \Delta x}{\Delta \phi(f)}, \qquad V_S \approx 1.1 \cdot V_R$$
+
+#### E. Modelado Físico Sísmico Análogo en Terrario / Sandbox
+
+La sísmica de refracción y dispersión puede reproducirse a escala reducida en el terrario de laboratorio gracias a un fenómeno físico ventajoso: **en arena suelta no confinada, la velocidad de onda P es extremadamente lenta ($V_P \approx 120\text{--}200\text{ m/s}$)**:
+
+```text
+       [Impacto con bolita de acero + Trigger]                  [Sensor #1]         [Sensor #2]
+                          │                                          │                   │
+                          ▼ (x=0)                                    ▼ (x1)              ▼ (x2)
+══════════════════════════█══════════════════════════════════════════▲═══════════════════▲════════ (Superficie)
+       Capa 1: Arena suelta (Lenta: V1 ≈ 140 m/s)                    │                   │
+  ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│─ ─ ─ ─ ─ ─ ─ ─ ─ ─│─ ─ (Profundidad z1)
+       Capa 2: Baldosa / Ladrillo macizo (Rápida: V2 ≈ 2000 m/s)     │                   │
+```
+
+1. **Resolución Temporal del ESP32:** En $d = 30\text{ cm}$ de arena, la onda tarda $t = \frac{0.30\text{ m}}{150\text{ m/s}} = 2\,000\ \mu\text{s}$ ($2.0\text{ ms}$). Con el reloj de $1\ \mu\text{s}$ (`micros()`) del ESP32 o el micrófono I2S `INMP441` muestreando a $44.1\text{ kHz}$ ($22.6\ \mu\text{s}$ entre puntos), se adquieren casi 100 muestras digitales de la traza de onda completa.
+2. **Experimento 1 — Refracción Bicomponente:**
+   - Se coloca en el fondo del terrario una baldosa gruesa o bloque de ladrillo macizo ($V_2 \approx 2000\text{ m/s}$) cubierto por $5\text{ cm}$ de arena suelta ($V_1 \approx 140\text{ m/s}$).
+   - A distancias cortas ($x < 15\text{ cm}$) llega primero la onda directa lenta; a distancias mayores ($x > 15\text{ cm}$), la onda que bajó al ladrillo viaja $14\times$ más rápido por el fondo y adelanta a la directa. El quiebre en la dromocrónica entrega la profundidad exacta del estrato arenoso.
+3. **Experimento 2 — Sombra Sísmica y Difracción:**
+   - Un tubo de PVC cerrado o bloque de espuma enterrado atenúa drásticamente la amplitud de la onda $P$ y genera retrasos por difracción, correlacionándose directamente con la anomalía resistiva de alta impedancia detectada por ERT.
+4. **Experimento 3 — Frecuencia de Resonancia ($f_0 = V_S / 4H$):**
+   - Para un espesor de arena de $10\text{ cm}$ ($H = 0.1\text{ m}$) con $V_S \approx 80\text{ m/s}$, la frecuencia propia es $f_0 \approx 200\text{ Hz}$, detectable mediante la FFT del acelerómetro o micrófono.
+5. **Pautas de Construcción del Terrario Sísmico:**
+   - **Bordes Absorbentes:** Para evitar reflexiones parásitas en las paredes rígidas de la caja plástica, se pegan tiras de goma eva o esponja en las 4 paredes interiores.
+   - **Acoplamiento Mecánico:** Los sensores (`ADXL345` o micrófono) se fijan con un clavo o pica corta clavada en la arena para asegurar transferencia elástica directa.
+
+#### F. Laboratorio Acústico de Mesa: Velocidad de Onda y Módulo de Young ($E$)
+- En barras de material (madera, concreto, roca o tubo de PVC) o dentro del terrario:
+- Un golpe leve en un extremo y el `INMP441` o `ADXL345` en el otro extremo miden el tiempo de vuelo $\Delta t$ con precisión de microsegundos ($V_P = L / \Delta t$).
+- A partir de la densidad conocida $\rho$, se calcula experimentalmente el **Módulo de Elasticidad de Young ($E$)** del material:
+  $$V_P = \sqrt{\frac{E}{\rho} \frac{1 - \nu}{(1 + \nu)(1 - 2\nu)}}$$
+
+---
+
 ### 🌐 Métodos Electromagnéticos Pasivos: Magnetotelúrica (MT) y Audio-MT (AMT)
 
 La instrumentación de campo magnético y potencial eléctrico del monorepo se conecta directamente con los métodos electromagnéticos pasivos profundos:
@@ -378,12 +495,16 @@ $$\delta \approx 503 \sqrt{\frac{\rho}{f}} \quad [\text{metros}]$$
 ### Experimentos Posibles
 
 1. **Registrar un sismo real** y comparar timestamp y amplitud con el boletín del CSN Chile
-2. **Medir diferencia de llegada** de ondas P entre Nodo 1 y Nodo 2 → estimar distancia al epicentro
+2. **Medir diferencia de llegada** de ondas P entre Nodo 1 y Nodo 2 → estimar distancia al epicentro ($d \approx 8 \cdot \Delta t$)
 3. **Correlacionar caída de presión** (BMP280) con sismicidad superficial en el tiempo
 4. **Comparar espectro de día vs noche** → efecto del ruido urbano (tráfico) en la estación
 5. **Detectar microtemblores** continuos de fondo (ruido sísmico ambiental)
 6. **Medir variación de inclinación** del suelo con MPU6050 durante semanas
-7. **Sondeo Eléctrico Vertical (SEV) y Tomografía de Resistividad ($\rho_a$):** Medir variaciones de resistividad del suelo ($\Omega\cdot\text{m}$) por humedad, salinidad, estratigrafía somera o detección de anomalías enterradas (arreglo de Wenner con 4 electrodos + `ADS1115`)
+7. **Resonancia del Suelo (HVSR Nakamura):** Curva espectral $H/V$ para medir la frecuencia fundamental $f_0$ y factor de amplificación sísmica del sitio
+8. **Sísmica Activa de Refracción:** Medir con martillo-trigger y 2 acelerómetros la dromocrónica ($t$ vs. $x$), velocidades $V_1, V_2$ y profundidad del estrato competente ($z_1$)
+9. **Dispersión de Ondas Rayleigh (MASW):** Curva $V_R(f)$ y perfil $V_S$ para clasificar el suelo según NCh433 / DS61
+10. **Sondeo Eléctrico Vertical (SEV) y Tomografía de Resistividad 2D ($\rho_a$):** Medir variaciones de resistividad del suelo ($\Omega\cdot\text{m}$) con 5 arreglos + exportación `RES2DINV`
+11. **GPR de Mesa / Terrario (RCWL-0516):** Escaneo por microondas a 3.18 GHz para detectar tuberías y cavidades en arena seca con perfil de reflexión analógica IF
 
 ### Conexiones Principales (Nodo Central)
 

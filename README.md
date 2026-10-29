@@ -34,7 +34,8 @@ D:\00_IoT_Projects\
 │   ├── 02_geophysics_and_environment_lab.md   # Architecture: Seismology, 2D ERT, Multi-Zone IoT & Modern Physics
 │   ├── 03_edge_ai_tinyml_roadmap.md           # Edge AI (TinyML) & Scientific ML roadmap (AI-1 to AI-9)
 │   ├── 04_mamba_cuda_esp32_setup.md           # Python (Mamba/CUDA) + ESP32 development environment guide
-│   └── 05_cpp_for_python_java_programmers.md  # C++ for Python, Java & JS developers (Rosetta stone & API reference)
+│   ├── 05_cpp_for_python_java_programmers.md  # C++ for Python, Java & JS developers (Rosetta stone & API reference)
+│   └── 06_multiphysics_sandbox_guide.md       # Practical guide for building & calibrating the Multiphysics Sandbox (ERT/GPR/Seismic)
 ├── hardware/
 │   ├── hardware_catalog.html                  # Interactive bill of materials (BOM) & sensor specs
 │   └── inventory_check.xlsx                   # Hardware inventory spreadsheet
@@ -59,7 +60,7 @@ D:\00_IoT_Projects\
 | **03** | **Modern Physics Lab: Planck's Constant ($h$)** | `ESP32 DevKit 30P` | 8-bit `DAC` (`D25`), `ADS1115` (16-bit), Multi-wavelength LEDs ($470\text{–}940\text{ nm}$) | 📋 Planned ($e V_0 = h\nu - \phi$ linear regression) |
 | **04** | **Spectral Remote Sensing: Proximal Active `NDVI` Sensor** | `ESP32 DevKit 30P` / `C3` | Red LED ($625\text{ nm}$), NIR Emitter/Photodiode ($940\text{ nm}$, `HW-201`), `ADS1115`, `BH1750` | 📋 Planned ($\text{NDVI} = \frac{\rho_{\text{NIR}} - \rho_{\text{Red}}}{\rho_{\text{NIR}} + \rho_{\text{Red}}}$) |
 | **05** | **Special Relativity & Cosmic Ray Muon Detector** | `XIAO ESP32-S3 Sense` | `OV2640` CMOS Dark-Frame Detector (or `BPW34` PIN Photodiodes) | 📋 Planned (Time dilation $\tau = \gamma\tau_0$ & Poisson statistics) |
-| **06** | **3-Axis Digital Seismograph & FFT Waterfall (`STA/LTA`)** | `ESP32-S3 N16R8` | `ADXL345` (SPI, $800\text{ Hz}$), `MPU6050` (Tilt), `MicroSD` Datalogger | 📋 Planned |
+| **06** | **Seismology & Active Seismic Refraction Lab** (`projects/06_seismograph`) | `ESP32-S3 N16R8` / `DevKit` | `2× ADXL345` (SPI $800\text{--}1600\text{ Hz}$), `MPU6050`, `INMP441` (I2S), Hammer Trigger, MicroSD | 📋 Planned (Passive: 3-Axis `STA/LTA`, HVSR Nakamura Site Resonance; Active: P-Wave Refraction Dromochrone, Rayleigh Wave Dispersion `MASW`/`ReMi`, Young's Modulus $E$) |
 | **07** | **Interactive Voice Telemetry Agent & Desktop Robot** (`projects/07_voice_assistant`) | `ESP32-S3 N16R8` | `INMP441` (I2S Mic), `MAX98357A` (3W Amp), `SG90` Servos, `RCWL-0516` | 📋 Planned (`ESP-SR` KWS + Local TTS + DeepSeek LLM) |
 
 ---
@@ -120,3 +121,33 @@ A low-cost, high-precision geophysical resistivity meter using **ESP32 DevKit 30
   - At $3.3\text{--}5\text{ V}$ injection, signal-to-noise ratio supports up to $1.0\text{--}1.5\text{ m}$ depth in typical damp garden/agricultural soils ($a \approx 2\text{--}3\text{ m}$), and millimeter-scale profiling in laboratory sandbox models ($a = 2\text{--}5\text{ cm}$).
 - **Standard Geophysical Export:** Direct browser download of `.dat` files for **`RES2DINV`** (standard array codes `1`, `3`, `6`, `7`), `.csv` datasets for Python **`pyGIMLi`** and **`ResIPy`**.
 - **Field & IoT Interface:** Onboard SSD1306 OLED for instant field readouts, embedded Web Dashboard with real-time 2D pseudosection preview and multi-array comparison mode.
+- **Geophysical Synergy (ERT + GPR Sandbox):** Cross-validation with experimental 3.18 GHz microwave reflection profiling (`RCWL-0516` analog IF tap) in dry sand models, pairing galvanic conductivity with dielectric permittivity.
+
+---
+
+## 🌋 Project 06 Overview — Seismology & Active Seismic Refraction Lab (`06_seismograph`)
+
+A complete applied seismology and elastic wave laboratory leveraging the **ESP32-S3 N16R8** (8 MB PSRAM, Xtensa LX7 dual-core DSP), **ESP32 DevKit 30P**, **2× ADXL345 SPI Accelerometers ($800\text{--}1600\text{ Hz}$)**, **MPU6050**, and **INMP441 I2S High-Speed Acoustic Sensor ($44.1\text{ kHz}$)**:
+
+- **1. Passive Seismology & Real-Time STA/LTA:**
+  - Continuous 3-axis acceleration acquisition ($a_x, a_y, a_z$) in PSRAM ring-buffer.
+  - Real-time `STA/LTA` trigger ratio ($R(t) = \text{STA}/\text{LTA} > \text{threshold}$) to detect P/S seismic wave trains and filter urban noise.
+  - Epicentral distance estimation via S-P arrival time difference: $d_{\text{epicenter}} \approx 8.0 \cdot (t_S - t_P)\text{ [km]}$.
+- **2. Site Resonance & Seismic Amplification (HVSR Nakamura Technique):**
+  - Ambient seismic noise microtremor recording (oceanic microseisms, wind, distant traffic).
+  - Horizontal-to-Vertical Spectral Ratio: $\text{HVSR}(f) = \frac{\sqrt{S_x(f)^2 + S_y(f)^2}}{S_z(f)}$.
+  - Identifies fundamental site resonance frequency ($f_0$) and local amplification factor for earthquake engineering.
+- **3. Active Shallow Seismic Refraction (Hammer Strike & Snell's Law):**
+  - Instantaneous microsecond impact trigger (hammer-plate contact interrupt on ESP32 GPIO).
+  - First-break P-wave arrival detection across 2 geophone/accelerometer nodes.
+  - Dromochrone curve calculation ($t$ vs. $x$): derives topsoil velocity ($V_1$), bedrock velocity ($V_2$), and bedrock depth ($z_1 = \frac{t_i}{2}\frac{V_1 V_2}{\sqrt{V_2^2 - V_1^2}}$).
+- **4. Multichannel Surface Wave Dispersion (MASW / Rayleigh Waves):**
+  - Dual-accelerometer cross-spectral phase difference $\Delta \phi(f)$ to extract Rayleigh phase velocity dispersion $V_R(f) = \frac{2\pi f \Delta x}{\Delta \phi(f)}$.
+  - Derives $V_S$ profile for geotechnical site classification under Chilean seismic code **NCh433 / DS61** ($V_{S30}$).
+- **5. Laboratory Acoustic & Elastic Modulus Testing:**
+  - $44.1\text{ kHz}$ 24-bit I2S acoustic transit time measurement ($\Delta t$) through rock, concrete, and sandbox models.
+  - Direct experimental calculation of dynamic **Young's Modulus ($E$)**.
+- **6. Sandbox Seismic Analog Modeling:**
+  - Scaled laboratory refraction (loose sand $V_1 \approx 140\text{ m/s}$ over bottom tile/brick $V_2 \approx 2000\text{ m/s}$ with crossover at $x_{\text{crit}} \approx 15\text{ cm}$).
+  - Seismic shadowing and wave diffraction behind buried voids/PVC tubes, cross-validated with ERT resistivity anomalies.
+  - Soil column resonance ($f_0 = V_S / 4H$) with absorbing sponge boundary conditions on sandbox walls.
