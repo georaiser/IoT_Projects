@@ -116,10 +116,14 @@ A low-cost, high-precision geophysical resistivity meter using **ESP32 DevKit 30
   - **Schlumberger 1D:** $K = \frac{\pi (s^2 - b^2/4)}{b}$ (classic Vertical Electrical Sounding calibration without moving potential electrodes $M, N$).
   - **Wenner-Schlumberger:** $K = \pi n(n+1)a$ (hybrid balance for 2D multi-electrode tomography).
   - **Pole-Dipole:** $K = 2\pi n(n+1)a$ (remote $B$ at infinity; maximum depth penetration and sensitive to dipping structures).
+  - **3D Volumetric Grid Mode ($4 \times 4$ Electrodes):** Cross-line multi-directional acquisition ($ax = ay = 4.0\text{ cm}$) resolving finite 3D subsurface bodies without 2D infinite-strike assumptions.
 - **Physical Depth of Investigation:**
   - Governed geometrically by array aperture ($z_e \approx 0.52a$ in Wenner).
   - At $3.3\text{--}5\text{ V}$ injection, signal-to-noise ratio supports up to $1.0\text{--}1.5\text{ m}$ depth in typical damp garden/agricultural soils ($a \approx 2\text{--}3\text{ m}$), and millimeter-scale profiling in laboratory sandbox models ($a = 2\text{--}5\text{ cm}$).
-- **Standard Geophysical Export:** Direct browser download of `.dat` files for **`RES2DINV`** (standard array codes `1`, `3`, `6`, `7`), `.csv` datasets for Python **`pyGIMLi`** and **`ResIPy`**.
+- **Dual-Ecosystem Geophysical Inversion (Commercial vs. Open Science Benchmark):**
+  - **Primary Native Export:** Direct generation of standard `.dat` files for **`RES2DINV`** (2D multi-profile: `perfil_1.dat` to `perfil_4.dat`) and **`RES3DINV`** (volumetric 3D: `terrario_3d.dat`, array code `11`).
+  - **Secondary Python / VTK Export:** Streamed CSV with explicit $(x, y, z)$ electrode coordinates for open-source **`pyGIMLi`** (unstructured FEM finite-element 2D/3D inversion) and **`ResIPy`** (R2/R3t GUI), with interactive 3D rendering in **ParaView**.
+- **Multi-Profile 2D vs. 3D Volume Strategy:** Acquisition of 3 to 4 parallel longitudinal 2D lines across the terrario to contrast sliced pseudo-3D cross-sections against true volumetric 3D inversion.
 - **Field & IoT Interface:** Onboard SSD1306 OLED for instant field readouts, embedded Web Dashboard with real-time 2D pseudosection preview and multi-array comparison mode.
 - **Geophysical Synergy (ERT + GPR Sandbox):** Cross-validation with experimental 3.18 GHz microwave reflection profiling (`RCWL-0516` analog IF tap) in dry sand models, pairing galvanic conductivity with dielectric permittivity.
 

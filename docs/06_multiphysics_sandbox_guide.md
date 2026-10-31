@@ -225,27 +225,30 @@ Si se desea capturar la forma de onda senoidal Doppler continua:
 
 ---
 
-## 5. Plano de Distribución Espacial y Coordenadas (X-Y-Z)
+## 5. Plano de Distribución Espacial y Coordenadas (X-Y-Z): Modo 2D vs. Modo 3D
+
+El terrario soporta dos configuraciones de electrodos sobre la misma superficie de arena según el objetivo de la prospección:
+
+### 5.1 Modo 2D: Multi-Perfil Paralelo (3 a 4 Líneas Longitudinales para Comparación 3D)
+En lugar de medir un único perfil central, se adquieren **3 o 4 perfiles 2D paralelos** separados a $\Delta y = 4.0\text{ cm}$. Cada perfil genera su propio archivo `.dat` independiente (`perfil_Y1.dat`, `perfil_Y2.dat`, etc.) listo para `RES2DINV` / `ResIPy`:
 
 ```text
-VISTA SUPERIOR EN PLANTA (Ejes X - Y):
+VISTA SUPERIOR EN PLANTA 2D MULTI-PERFIL (Ejes X - Y):
 
 Y (ancho = 22 cm)
  ▲
  │ ┌────────────────── Absorbedor Goma Eva (Pared) ──────────────────┐
  │ │                                                                 │
- │ │  [Fuente]                                                       │
- │ │  [Golpe ]   e1  e2  e3  e4  e5  e6  e7  e8  e9  ... e15 e16     │
- │ │    (X=0)    •   •   •   •   •   •   •   •   •        •   •      │  Línea Central ERT
- │ │                                                                 │  (Y = 11 cm)
- │ │                 [  Anomalía A: PVC  ]      [ Anomalía B: Esponja]
- │ │                 [   X = 14 a 18 cm  ]      [   X = 30 a 34 cm   ]
+ │ │  Y = 5 cm   ───[ Perfil 2D #1: e1  a  e16 (Línea Norte)  ]───   │ ──► perfil_1.dat
+ │ │  Y = 9 cm   ───[ Perfil 2D #2: e1  a  e16 (Sobre Tubo PVC)]───  │ ──► perfil_2.dat
+ │ │  Y = 13 cm  ───[ Perfil 2D #3: e1  a  e16 (Sobre Esponja) ]───  │ ──► perfil_3.dat
+ │ │  Y = 17 cm  ───[ Perfil 2D #4: e1  a  e16 (Línea Sur)    ]───   │ ──► perfil_4.dat
  │ │                                                                 │
  │ └────────────────── Absorbedor Goma Eva (Pared) ──────────────────┘
  └─────────────────────────────────────────────────────────────────────► X (largo = 50 cm)
    0 cm                                                              50 cm
 
-VISTA EN CORTE VERTICAL (Ejes X - Z):
+VISTA EN CORTE VERTICAL 2D (Ejes X - Z):
 
 Z (profundidad = 15 cm)
  0 cm (Superficie) ──•───•───•───•───•───•───•───•───•───•───•───•───•───•───•───•── (Electrodos z=2.5cm)
@@ -259,6 +262,39 @@ Z (profundidad = 15 cm)
 10 cm ───────────────[ Opcional: Baldosa Cerámica Basal (V2 ≈ 2000 m/s) ]
  │
 15 cm (Fondo) ═════════════════════════════════════════════════════════════════════════
+
+- Cada línea permite comparar la pseudosección 2D individual frente al modelo volumétrico 3D.
+- Los 4 archivos pueden combinarse directamente en RES3DINV o en un script de pyGIMLi para inversión tridimensional.
+
+---
+
+### 5.2 Modo 3D: Grilla Volumétrica Cuadrada ($4 \times 4$ Electrodos)
+Para iluminar el volumen tridimensional y reconstruir bloques volumétricos sin asumir simetría 2D. Se clavan 16 electrodos en una matriz de $4 \times 4$ con espaciamiento uniforme $ax = ay = 4.0\text{ cm}$:
+
+```text
+VISTA SUPERIOR EN PLANTA 3D (Ejes X - Y):
+
+Y (ancho = 22 cm)
+ ▲
+ │ ┌─────────────────────────────────────────────────────────────────┐
+ │ │                                                                 │
+ │ │        X1 (19 cm)      X2 (23 cm)      X3 (27 cm)      X4 (31 cm)
+ │ │  Y1     e1 (•) ───────── e2 (•) ──────── e3 (•) ──────── e4 (•) │
+ │ │  (5cm)   │                │                │                │   │
+ │ │  Y2     e5 (•) ───────── e6 (•) ──────── e7 (•) ──────── e8 (•) │
+ │ │  (9cm)   │    ┌──────────────────┐         │                │   │
+ │ │  Y3     e9 (•)│  ANOMALÍA 3D     │─────── e11(•) ─────── e12(•) │
+ │ │  (13cm)  │    │  (Objeto finito) │         │                │   │
+ │ │  Y4     e13(•)└──────────────────┘─────── e15(•) ─────── e16(•) │
+ │ │  (17cm)       e14(•)                                            │
+ │ │                                                                 │
+ │ └─────────────────────────────────────────────────────────────────┘
+ └─────────────────────────────────────────────────────────────────────► X (largo = 50 cm)
+                               ÁREA 3D: 12 × 12 cm
+
+VISTA EN CORTE ISOMÉTRICO VOLUMÉTRICO:
+- La grilla adquiere líneas en X (filas 1..4), líneas en Y (columnas 1..4) y líneas cruzadas diagonales (Cross-line 3D).
+- **Exportación Primaria:** Genera directamente el archivo `.dat` estándar para **`RES3DINV`** (`terrario_3d.dat`), que luego puede convertirse a CSV para **`pyGIMLi`** / **`ResIPy`** o renderizarse en **ParaView** (.vtk).
 ```
 
 ---

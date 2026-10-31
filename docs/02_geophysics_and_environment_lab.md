@@ -235,24 +235,133 @@ Un principio medular de la geofísica eléctrica es:
 
 ---
 
-#### 💾 Exportación Estándar a Software Geofísico (`RES2DINV`, `ResIPy`, `pyGIMLi`)
+#### 💾 Exportación y Comparativa de Inversión 2D/3D (`RES2DINV` vs. Software Libre `pyGIMLi` y `ResIPy`)
 
-El servidor web del ESP32 genera en memoria y exporta directamente el archivo estándar `.dat` de **`RES2DINV`** (compatible de forma nativa con `ResIPy` y `pyGIMLi` en Python):
+El sistema implementa una arquitectura de exportación agnóstica de software. Dado que licencias comerciales como `RES2DINV` o `RES3DINV` no siempre están disponibles o son cerradas, el monorepo prioriza una **comparativa dual**: contrastar las inversiones comerciales clásicas de Gauss-Newton contra el ecosistema científico libre de última generación en Python:
 
 ```text
-Tomografia ERT 2D - ESP32 ADS1115
-1.0                          # Espaciamiento unitario de electrodos (m)
-1                            # Código de arreglo (1=Wenner, 3=Dipolo-Dipolo, 7=Wenner-Schlumberger)
-15                           # Número de puntos de medición
-1                            # Tipo de coordenadas (1 = x centro y separacion a)
-0                            # Indicador de voltaje IP (0 = solo resistividad aparente)
+                                  ESP32 ERT MINI-METER
+                                           │
+                    ┌──────────────────────┴──────────────────────┐
+                    ▼                                             ▼
+          Formato RES2DINV (.dat)                       Formato CSV Unificado (x, y, z)
+                    │                                             │
+         ┌──────────┴──────────┐                       ┌──────────┴──────────┐
+         ▼                     ▼                       ▼                     ▼
+     RES2DINV               ResIPy                  pyGIMLi               ParaView
+  (Gauss-Newton)        (GUI Open Source)      (Python FEM Inversion)    (Render 3D VTK)
+```
+
+1. **Formato Estándar `RES2DINV` / `RES3DINV` (`.dat`):**
+   El servidor web genera en memoria el formato estándar con código de geometría (`1` = Wenner, `3` = Dipolo-Dipolo, `7` = Wenner-Schlumberger, `11` = General 3D).
+2. **Ecosistema Científico Libre (`pyGIMLi` + `ResIPy` en Python):**
+   - **`pyGIMLi` (Python Geophysical Inversion and Modelling Library):** Estándar de la comunidad geofísica abierta. Resuelve la ecuación directa por **Elementos Finitos (FEM)** en mallas triangulares no estructuradas (2D) y tetraédricas (3D), permitiendo controlar con precisión matemática el parámetro de regularización ($\lambda$), la rugosidad del modelo y la matriz de covarianza de datos.
+   - **`ResIPy` (GUI Open-Source para R2 / R3t):** Desarrollado por la Universidad de Lancaster. Ofrece una interfaz gráfica potente para cargar directamente los archivos del ESP32, realizar control de calidad (filtro de errores recíprocos y pseudosección en vivo), e invertir tanto perfiles 2D como mallas 3D sin escribir código.
+   - **Visualización 3D en `ParaView`:** `pyGIMLi` exporta el volumen invertido en formato `.vtk`, permitiendo generar isosuperficies de resistividad volumétrica, cortes interactivos ortogonales ($XY$, $XZ$, $YZ$) y transparencias volumétricas de las anomalías enterradas.
+
+##### Estructura de Exportación 2D y 3D (Formato Nativo RES2DINV / RES3DINV como Principal)
+
+El flujo de trabajo genera **primariamente el formato estándar `.dat` de `RES2DINV` y `RES3DINV`**, garantizando compatibilidad industrial inmediata, y permitiendo luego la conversión a formatos abiertos (`pyGIMLi` / `ResIPy` / VTK) según se requiera:
+
+```text
+# 1. Archivo 2D Estándar RES2DINV (perfil_linea_Y1.dat)
+Terrario ERT 2D - Linea Y1 (ESP32 ADS1115)
+2.5                          # Espaciamiento unitario a (cm)
+1                            # Código de arreglo (1 = Wenner)
+15                           # Número de mediciones
+1                            # Coordenadas relativas (x_centro, a)
+0                            # Sin datos de polarización inducida (IP)
 # x_centro   separacion_a   resistividad_aparente(ohm-m)
-1.50         1.00           58.42
-2.50         1.00           61.15
-3.50         1.00           59.80
+3.75         2.50           54.20
+6.25         2.50           58.10
 ...
 0                            # Terminador de archivo
+
+# 2. Archivo 3D Nativo RES3DINV (terrario_bloque_3d.dat)
+Terrario ERT 3D - Grilla 4x4 (ESP32 ADS1115)
+4.0                          # Espaciamiento en X (cm)
+4.0                          # Espaciamiento en Y (cm)
+11                           # Código de arreglo 3D (11 = Arreglo libre / Cross-line cuadripolos)
+64                           # Total de puntos de medición volumétricos 3D
+1                            # Tipo de formato (1 = Coordenadas de electrodos X-Y)
+0                            # Indicador IP (0 = Solo resistividad aparente)
+# Ax   Ay   Bx   By   Mx   My   Nx   Ny   rho_a(ohm-m)
+0.0  0.0  4.0  0.0  8.0  0.0 12.0  0.0  50.32
+0.0  4.0  4.0  4.0  8.0  4.0 12.0  4.0  48.15
+0.0  0.0  4.0  0.0  4.0  4.0  8.0  4.0  62.40   # Medición cruzada (Cross-line 3D)
+...
+0                            # Terminador de archivo 3D
 ```
+
+---
+
+#### 🧊 Estrategia de Prospección: 3 a 4 Perfiles 2D Paralelos vs. Inversión Volumétrica 3D
+
+Para evaluar experimentalmente el salto de dimensión (2.5D vs. 3D real), el protocolo de laboratorio contempla **adquirir 3 o 4 perfiles 2D paralelos contiguos** en el terrario y compararlos cara a cara contra el modelo invertido 3D:
+
+```text
+VISTA SUPERIOR — PROSPECCIÓN MULTI-PERFIL 2D PARALELO vs. CUBO 3D:
+
+Y (ancho = 22 cm)
+ ▲
+ │ ┌─────────────────────────────────────────────────────────────────┐
+ │ │                                                                 │
+ │ │  Y = 5 cm   ───[ Perfil 2D #1: e1  a  e16 (Línea Norte)  ]───   │  dat #1
+ │ │  Y = 9 cm   ───[ Perfil 2D #2: e1  a  e16 (Sobre Anomalía)]───   │  dat #2
+ │ │  Y = 13 cm  ───[ Perfil 2D #3: e1  a  e16 (Sobre Anomalía)]───   │  dat #3
+ │ │  Y = 17 cm  ───[ Perfil 2D #4: e1  a  e16 (Línea Sur)    ]───   │  dat #4
+ │ │                                                                 │
+ │ └─────────────────────────────────────────────────────────────────┘
+ └─────────────────────────────────────────────────────────────────────► X (largo = 50 cm)
+
+METODOLOGÍA DE COMPARACIÓN:
+1. Inversión 2D Individual (RES2DINV / ResIPy):
+   - Se invierten por separado perfil_1.dat, perfil_2.dat, perfil_3.dat y perfil_4.dat.
+   - Enfoque pseudo-3D (Corte en rebanadas): Se alinean verticalmente los 4 cortes 2D para observar la extensión de la anomalía en el eje Y.
+2. Inversión Volumétrica Verdadera 3D (RES3DINV / pyGIMLi):
+   - Se compilan los 4 perfiles paralelos más las mediciones diagonales cruzadas (cross-line) en un único archivo primario terrario_3d.dat (formato RES3DINV).
+   - Se corre la inversión 3D completa: resuelve los efectos de borde tridimensionales (foco de corriente fuera del plano 2D) y elimina los artefactos de deformación ("smearing") que sufren los perfiles 2D aislados.
+```
+
+---
+
+#### 🧊 Extensión a Tomografía 3D (Malla $4 \times 4$ de 16 Electrodos)
+
+El mismo hardware de 16 electrodos y multiplexores puede conmutar de una línea 2D ($1 \times 16$) a una **grilla volumétrica 3D ($4 \times 4$)**:
+
+```text
+       X1 (0 cm)       X2 (4 cm)       X3 (8 cm)       X4 (12 cm)
+Y1 (0 cm)   e1 ───────────── e2 ───────────── e3 ───────────── e4
+            │                │                │                │
+Y2 (4 cm)   e5 ───────────── e6 ───────────── e7 ───────────── e8
+            │                │                │                │
+Y3 (8 cm)   e9 ───────────── e10 ──────────── e11 ──────────── e12
+            │                │                │                │
+Y4 (12 cm)  e13 ──────────── e14 ──────────── e15 ──────────── e16
+
+                      ESPACIAMIENTO 3D: ax = ay = 4.0 cm
+```
+
+##### 1. Adquisición Multi-Direccional 3D
+Para iluminar el volumen subyacente en el semiespacio, el firmware ejecuta una secuencia tridimensional completa:
+- **Perfiles X (En línea):** Cuadripolos en cada una de las 4 filas horizontales.
+- **Perfiles Y (Transversales):** Cuadripolos en cada una de las 4 columnas verticales.
+- **Cuadripolos Cruzados (Cross-line 3D):** Inyección en fila $Y_1$ y medición de potencial en fila contigua $Y_2$ (e.g., inyectar en $e_1\text{-}e_2$ y medir en $e_6\text{-}e_7$), resolviendo la continuidad lateral de la anomalía en el espacio $Y$.
+
+##### 2. Factor Geométrico $K$ General 3D
+En configuraciones arbitrarias o tridimensionales, el factor geométrico se calcula punto a punto a partir de las distancias euclidianas 3D entre electrodos en superficie $z = 0$:
+
+$$r_{AM} = \sqrt{(x_A - x_M)^2 + (y_A - y_M)^2}$$
+
+$$K_{3D} = \frac{2\pi}{\left(\frac{1}{r_{AM}} - \frac{1}{r_{BM}} - \frac{1}{r_{AN}} + \frac{1}{r_{BN}}\right)}$$
+
+##### 3. Comparativa Metodológica: 2D vs. 3D
+| Criterio | Modo 2D (Línea $1 \times 16$) | Modo 3D (Grilla $4 \times 4$) |
+|---|---|---|
+| **Apertura y Cobertura** | Perfil longitudinal estrecho ($L = 37.5\text{ cm}$) | Cubo volumétrico de análisis ($12 \times 12 \times 6\text{ cm}$) |
+| **Profundidad Mediana ($z_e$)** | Hasta $6\text{ cm}$ (Wenner $a = 2.5\text{ cm}$, $n=1\text{--}4$) | Hasta $4\text{--}5\text{ cm}$ ($ax = ay = 4\text{ cm}$) |
+| **Asunción Geológica** | Asume estructuras cilíndricas 2D infinitas en el eje $Y$ | No asume simetría: resuelve cuerpos finitos aislados en $X, Y, Z$ |
+| **Visualización** | Corte vertical 2D de resistividad real ($\rho(x,z)$) | Bloque volumétrico interactivo en `pyGIMLi` / ParaView ($\rho(x,y,z)$) |
 
 #### 🔬 Protocolo Experimental: Comparación Cruzada de Arreglos (Benchmark Multi-Arreglo)
 

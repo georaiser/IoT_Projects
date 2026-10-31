@@ -109,6 +109,20 @@ void handleApiClearHistory() {
   }
 }
 
+void handleApiDeleteHistory() {
+  if (server.hasArg("match")) {
+    String pattern = server.arg("match");
+    uint32_t count = deleteHistoryMatching(pattern);
+    char buf[128];
+    snprintf(buf, sizeof(buf), "{\"status\":\"ok\",\"deleted\":%u,\"match\":\"%s\"}", count, pattern.c_str());
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.send(200, "application/json", buf);
+  } else {
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing match parameter, e.g. /api/history/delete?match=Syncing\"}");
+  }
+}
+
 void handleDashboard() {
   server.send_P(200, "text/html", INDEX_HTML);
 }
@@ -119,6 +133,7 @@ void initWebServer() {
   server.on("/api/history", handleApiHistoryJson);
   server.on("/api/history.csv", handleApiHistoryCsv);
   server.on("/api/history/clear", handleApiClearHistory);
+  server.on("/api/history/delete", handleApiDeleteHistory);
   server.begin();
 }
 

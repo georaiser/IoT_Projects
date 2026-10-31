@@ -87,12 +87,14 @@ void setup() {
     Serial.println(clockState.synced ? " OK!" : " Pending (will sync in background)");
   }
 
-  // Initial acquisition and first history record
+  // Initial acquisition and first history record (only if clock is ready)
   updateTimeService();
   readSensors();
   evaluateAlerts(readings);
   updateStats(readings, clockState.shortTimeStr);
-  logHistorySample(readings, clockState.dateTimeStr);
+  if (clockState.synced) {
+    logHistorySample(readings, clockState.dateTimeStr);
+  }
   updateDisplay(readings, clockState.shortTimeStr, getStationIpString());
 }
 

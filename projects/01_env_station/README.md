@@ -29,7 +29,7 @@ A real-time IoT environmental telemetry and air quality monitoring station suppo
   - **Interactive HTML5 Canvas Hover Tooltip:** Vertical dashed guideline, target glow circle, and floating badge showing exact timestamp and measurement (`Time | Value Unit`) on both desktop (`mousemove`) and mobile touch (`touchmove`).
   - **Expanded 48-Hour Buffer:** 576 data points at 5-minute sampling intervals.
   - One-click toggle between Dynamic Zoom and Fixed Metrological Range.
-  - Endpoints: `GET /` (Dashboard), `GET /api/sensors` (JSON with storage info), `GET /api/history` (576-point JSON), `GET /api/history.csv` (Flash stream), `GET /api/history/clear?confirm=true` (Remote flash purge).
+  - Endpoints: `GET /` (Dashboard), `GET /api/sensors` (JSON with storage info), `GET /api/history` (72h JSON), `GET /api/history.csv` (Flash stream), `GET /api/history/clear?confirm=true` (Remote flash purge), `GET /api/history/delete?match=PATTERN` (Remote targeted row deletion).
 - **Automated Python Synchronization Tool:**
   - Standalone script (`scripts/sync_station_data.py`) with zero pip dependencies. Deduplicates historical records, updates `data/env_station_master.csv`, and optionally purges flash memory with `--purge` after successful verification.
 
@@ -187,6 +187,7 @@ To eliminate the $0.75\text{ W}$ heating dissipation, save power, and obtain res
 - **`GET /api/history`**: Compact JSON array of up to 576 48-hour data points (`[timestamp_short, temp, hum, pres, air_ppm]`).
 - **`GET /api/history.csv`**: Direct stream of `/history.csv` from LittleFS flash memory (5-minute resolution).
 - **`GET /api/history/clear?confirm=true`** (or `POST`): Remote purge of the LittleFS historical log, recreating a fresh header.
+- **`GET /api/history/delete?match=PATTERN`**: Targeted in-place deletion of records from LittleFS flash and RAM buffer (e.g. `?match=Syncing` to eliminate NTP sync artifacts).
 
 ---
 

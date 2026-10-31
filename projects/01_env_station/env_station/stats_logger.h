@@ -150,8 +150,12 @@ void restoreHistoryFromFlash() {
     int c3 = (c2 > 0) ? line.indexOf(',', c2 + 1) : -1;
     int c4 = (c3 > 0) ? line.indexOf(',', c3 + 1) : -1;
 
+    // Filter out invalid/unsynced rows during flash restore
+    if (line.indexOf("Syncing") >= 0 || line.indexOf("Up ") >= 0) continue;
+
     if (c1 > 0 && c2 > 0 && c3 > 0 && c4 > 0) {
       String tStr = line.substring(0, c1);
+      if (tStr.length() < 16) continue;
       float  tVal = line.substring(c1 + 1, c2).toFloat();
       float  hVal = line.substring(c2 + 1, c3).toFloat();
       float  pVal = line.substring(c3 + 1, c4).toFloat();
@@ -191,6 +195,12 @@ void updateStats(const SensorReadings& r, const String& shortTime) {
 }
 
 void logHistorySample(const SensorReadings& r, const String& fullDateTime) {
+  // Prevent logging invalid/unsynced timestamps that corrupt history and charts
+  if (!clockState.synced || fullDateTime.indexOf("Syncing") >= 0 || fullDateTime.length() < 16) {
+    Serial.println("StatsLogger: Skipping log sample, NTP clock not synced yet");
+    return;
+  }
+
   // 1. Add to RAM circular buffer for fast web charts
   appendSampleToRamBuffer(fullDateTime, r.tempAHT, r.humidity, r.pressure, (uint16_t)r.airQualityPpm);
 
@@ -211,6 +221,52 @@ void logHistorySample(const SensorReadings& r, const String& fullDateTime) {
       f.close();
     }
   }
+}
+
+// Delete records from Flash and RAM matching a substring (e.g. "Syncing" or a date)
+uint32_t deleteHistoryMatching(const String& pattern) {
+  if (!littleFsOk || !LittleFS.exists(HISTORY_FILE_PATH)) return 0;
+  if (pattern.length() == 0) return 0;
+
+  File fIn = LittleFS.open(HISTORY_FILE_PATH, "r");
+  if (!fIn) return 0;
+
+  const char* TEMP_FILE = "/hist_temp.csv";
+  File fOut = LittleFS.open(TEMP_FILE, "w");
+  if (!fOut) {
+    fIn.close();
+    return 0;
+  }
+
+  uint32_t deletedCount = 0;
+  String header = fIn.readStringUntil('\n');
+  fOut.println(header); // Preserve CSV header
+
+  while (fIn.available()) {
+    String line = fIn.readStringUntil('\n');
+    line.trim();
+    if (line.length() < 10) continue;
+
+    if (line.indexOf(pattern) >= 0) {
+      deletedCount++;
+    } else {
+      fOut.println(line);
+    }
+  }
+
+  fIn.close();
+  fOut.close();
+
+  LittleFS.remove(HISTORY_FILE_PATH);
+  LittleFS.rename(TEMP_FILE, HISTORY_FILE_PATH);
+
+  // Re-read Flash into RAM to sync web charts and OLED immediately
+  historyHead  = 0;
+  historyCount = 0;
+  restoreHistoryFromFlash();
+
+  Serial.printf("LittleFS: Deleted %u records matching '%s'\n", deletedCount, pattern.c_str());
+  return deletedCount;
 }
 
 String buildHistoryCsv() {
